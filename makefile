@@ -1,0 +1,61 @@
+build:
+	go build -o aegis cmd/aegis/main.go
+
+dev:
+	go run cmd/aegis/main.go
+
+run:
+	./aegis
+
+test:
+	go test ./...
+
+test-keypair:
+	go run scripts/generate-test-keypair.go
+
+test-integration:
+	go test -tags=integration -v ./test/...
+
+test-integration-developer:
+	go test -tags=integration -v ./test/developer/...
+
+test-integration-dashboard:
+	go test -tags=integration -v ./test/dashboard/...
+
+test-integration-ws:
+	go test -tags=integration -v ./test/ws/...
+
+test-race:
+	go test -race ./...
+
+sqlc:
+	sqlc generate
+
+migrate-up:
+	go run github.com/pressly/goose/v3/cmd/goose@latest -dir internal/storage/migrations postgres "$${DATABASE_URL}" up
+
+migrate-down:
+	go run github.com/pressly/goose/v3/cmd/goose@latest -dir internal/storage/migrations postgres "$${DATABASE_URL}" down
+
+docker-up:
+	docker compose -f deployments/docker-compose.yaml up -d
+
+docker-down:
+	docker compose -f deployments/docker-compose.yaml down
+
+demo-normal:
+	./scripts/demo-normal.sh
+
+demo-expired:
+	./scripts/demo-expired-blockhash.sh
+
+verify-lifecycle:
+	./scripts/verify-lifecycle-log.sh
+
+clean:
+	rm -f aegis
+
+.PHONY: build dev run test test-keypair test-integration test-integration-developer test-integration-dashboard test-integration-ws test-race sqlc migrate-up migrate-down docker-up docker-down demo-normal demo-expired verify-lifecycle clean air
+
+air:
+	air --build.cmd "go build -o tmp/main cmd/aegis/main.go" --build.entrypoint "./tmp/main" --build.exclude_dir "tmp,build"

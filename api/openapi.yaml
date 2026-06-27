@@ -1,0 +1,101 @@
+openapi: 3.0.3
+info:
+  title: Aegis Control Plane API
+  version: 1.1.0
+paths:
+  /v1/transactions:
+    post:
+      summary: Submit a pre-signed transaction to Jito sendTransaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transaction]
+              properties:
+                transaction:
+                  type: string
+                  description: Signed transaction (base64 or base58)
+                encoding:
+                  type: string
+                  enum: [base64, base58]
+                  default: base64
+                memo:
+                  type: string
+                policy_mode:
+                  type: string
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitResponse'
+  /v1/bundles:
+    post:
+      summary: Submit 1-5 pre-signed transactions to Jito sendBundle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transactions]
+              properties:
+                transactions:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items:
+                    type: string
+                encoding:
+                  type: string
+                  enum: [base64, base58]
+                memo:
+                  type: string
+  /v1/transactions/{id}:
+    get:
+      summary: Get transaction or bundle anchor status
+  /v1/transactions/{id}/timeline:
+    get:
+      summary: Get lifecycle timeline
+  /v1/bundles/{id}:
+    get:
+      summary: Get bundle row and Jito status
+  /v1/blockhash:
+    get:
+      summary: Latest blockhash for client signing
+  /v1/tip-accounts:
+    get:
+      summary: Jito tip accounts
+  /v1/dashboard/snapshot:
+    get:
+      summary: Full dashboard snapshot
+  /v1/ws:
+    get:
+      summary: WebSocket dashboard stream
+  /riverui:
+    get:
+      summary: River queue UI
+components:
+  schemas:
+    SubmitResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        submission_kind:
+          type: string
+          enum: [transaction, bundle]
+        result:
+          type: string
+          description: Signature (single) or bundle_id (bundle)
+        signatures:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        encoding:
+          type: string
+        tip_floor_lamports:
+          type: integer
