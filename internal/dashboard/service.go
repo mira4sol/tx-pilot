@@ -189,6 +189,17 @@ type RecoveryRow struct {
 	DecisionID    string `json:"decision_id"`
 }
 
+type ChartPointView struct {
+	Time    time.Time      `json:"time"`
+	Payload map[string]any `json:"payload"`
+}
+
+type ChartsResponse struct {
+	Series string           `json:"series"`
+	Window string           `json:"window"`
+	Points []ChartPointView `json:"points"`
+}
+
 func (s *Service) Snapshot(ctx context.Context) (Snapshot, error) {
 	currentSlot, tps, slots, leaders, lastUpdate, _ := s.slotState.Snapshot()
 	leader := leaders[currentSlot]
@@ -253,6 +264,42 @@ func (s *Service) Charts(ctx context.Context, series string) ([]dbgen.ChartPoint
 	return s.q.ListChartPoints(ctx, dbgen.ListChartPointsParams{
 		Series: series, PointTime: pgtype.Timestamptz{Time: since, Valid: true},
 	})
+}
+
+func parseChartWindow(window string) time.Duration {
+	switch window {
+	case "5m":
+		return 5 * time.Minute
+	case "1h":
+		return time.Hour
+	case "24h":
+		return 24 * time.Hour
+	default:
+		return 15 * time.Minute
+	}
+}
+
+func (s *Service) ChartsResponse(ctx context.Context, series, window string) (ChartsResponse, error) {
+	since := time.Now().UTC().Add(-parseChartWindow(window))
+	points, err := s.q.ListChartPoints(ctx, dbgen.ListChartPointsParams{
+		Series: series, PointTime: pgtype.Timestamptz{Time: since, Valid: true},
+	})
+	if err != nil {
+		return ChartsResponse{}, err
+	}
+	out := ChartsResponse{Series: series, Window: window, Points: make([]ChartPointView, 0, len(points))}
+	for _, point := range points {
+		payload := map[string]any{}
+		if len(point.Payload) > 0 {
+			_ = json.Unmarshal(point.Payload, &payload)
+		}
+		t := time.Time{}
+		if point.PointTime.Valid {
+			t = point.PointTime.Time
+		}
+		out.Points = append(out.Points, ChartPointView{Time: t, Payload: payload})
+	}
+	return out, nil
 }
 
 func (s *Service) transactionStream(ctx context.Context) TransactionStream {

@@ -14,6 +14,7 @@ type Config struct {
 	Env                  string
 	Cluster              string
 	HTTPAddr             string
+	WebDir               string
 	PolicyMode           aegis.PolicyMode
 	PublicAPIBaseURL     string
 	SolanaRPCURL         string
@@ -44,6 +45,7 @@ func Load(envFile string) (*Config, error) {
 		Env:                  getEnv("AEGIS_ENV", "development"),
 		Cluster:              getEnv("AEGIS_CLUSTER", "mainnet-beta"),
 		HTTPAddr:             getEnv("AEGIS_HTTP_ADDR", ":8080"),
+		WebDir:               getEnv("AEGIS_WEB_DIR", "web/dist"),
 		PolicyMode:           aegis.PolicyMode(strings.ToUpper(getEnv("AEGIS_POLICY_MODE", "SAFE"))),
 		PublicAPIBaseURL:     getEnv("AEGIS_PUBLIC_API_BASE_URL", "http://localhost:8080"),
 		SolanaRPCURL:         os.Getenv("SOLANA_RPC_URL"),

@@ -4,6 +4,8 @@ AI-powered transaction orchestration and recovery for Solana. Aegis monitors liv
 
 ## Quick start
 
+See the full [Setup & run guide](docs/setup.md). Minimal steps:
+
 ```bash
 cp .env.example .env   # fill credentials (AEGIS_KEYPAIR_PATH required)
 make test-keypair      # creates aegis-test-keypair.json (gitignored)
@@ -88,6 +90,7 @@ The bundle misses that leader's block engine window. Aegis detects skipped slots
 
 ## Docs
 
+- [Setup & run guide](docs/setup.md)
 - [Architecture](docs/architecture.md)
 - [Dashboard contract](docs/dashboard-data-contract.md)
 - [Lifecycle log](docs/lifecycle-log.md)

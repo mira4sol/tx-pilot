@@ -19,3 +19,4 @@ aegis
 /bin/
 /vendor/
 node_modules/
+.pnpm-store

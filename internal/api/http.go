@@ -21,6 +21,7 @@ type Dependencies struct {
 	Hub          *notify.Hub
 	Logger       *zap.Logger
 	RiverUI      http.Handler
+	WebDir       string
 }
 
 func NewRouter(deps Dependencies) http.Handler {
@@ -58,9 +59,14 @@ func NewRouter(deps Dependencies) http.Handler {
 		r.Get("/dashboard/ai-decisions", deps.dashboardAIDecisions)
 		r.Get("/dashboard/failures", deps.dashboardFailures)
 		r.Get("/dashboard/recovery", deps.dashboardRecovery)
+		r.Get("/dashboard/health", deps.dashboardHealth)
+		r.Get("/dashboard/pipeline", deps.dashboardPipeline)
+		r.Get("/dashboard/landing", deps.dashboardLanding)
 		r.Get("/dashboard/charts", deps.dashboardCharts)
 		r.Get("/ws", deps.websocket)
 	})
+
+	registerWebUI(r, deps.WebDir, deps.Logger)
 	return r
 }
 
@@ -222,17 +228,36 @@ func (deps Dependencies) dashboardRecovery(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, snap.Recovery)
 }
 
+func (deps Dependencies) dashboardHealth(w http.ResponseWriter, r *http.Request) {
+	snap, _ := deps.Dashboard.Snapshot(r.Context())
+	writeJSON(w, http.StatusOK, snap.Health)
+}
+
+func (deps Dependencies) dashboardPipeline(w http.ResponseWriter, r *http.Request) {
+	snap, _ := deps.Dashboard.Snapshot(r.Context())
+	writeJSON(w, http.StatusOK, snap.Pipeline)
+}
+
+func (deps Dependencies) dashboardLanding(w http.ResponseWriter, r *http.Request) {
+	snap, _ := deps.Dashboard.Snapshot(r.Context())
+	writeJSON(w, http.StatusOK, snap.Landing)
+}
+
 func (deps Dependencies) dashboardCharts(w http.ResponseWriter, r *http.Request) {
 	series := r.URL.Query().Get("series")
 	if series == "" {
 		series = "network_health"
 	}
-	points, err := deps.Dashboard.Charts(r.Context(), series)
+	window := r.URL.Query().Get("window")
+	if window == "" {
+		window = "15m"
+	}
+	resp, err := deps.Dashboard.ChartsResponse(r.Context(), series, window)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"series": series, "points": points})
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

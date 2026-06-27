@@ -2,6 +2,8 @@
 
 ## Startup
 
+See [Setup & run guide](setup.md) for full installation. Minimal:
+
 ```bash
 make docker-up          # Postgres
 export $(grep -v '^#' .env | xargs)

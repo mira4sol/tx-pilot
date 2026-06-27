@@ -14,6 +14,13 @@ const (
 	ChannelTransactions = "transactions.stream"
 	ChannelAIDecisions  = "ai.decisions"
 	ChannelFailures     = "failures.analysis"
+	ChannelNetwork      = "network.ticker"
+	ChannelSlots        = "slots.feed"
+	ChannelLeaders      = "leaders.schedule"
+	ChannelPipeline     = "lifecycle.pipeline"
+	ChannelLanding      = "landing.probability"
+	ChannelRecovery     = "recovery.actions"
+	ChannelCharts       = "charts.series"
 )
 
 // Event types for webhooks and WebSocket fanout.

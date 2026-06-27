@@ -48,13 +48,13 @@ func (c *GeyserClient) Close() error {
 }
 
 type SlotEntry struct {
-	Slot       uint64
-	AgeMS      int64
-	Leader     string
-	Status     string
-	JitoLeader bool
-	Skipped    bool
-	SeenAt     time.Time
+	Slot       uint64    `json:"slot"`
+	AgeMS      int64     `json:"age_ms"`
+	Leader     string    `json:"leader"`
+	Status     string    `json:"status"`
+	JitoLeader bool      `json:"jito_leader"`
+	Skipped    bool      `json:"skipped"`
+	SeenAt     time.Time `json:"-"`
 }
 
 type SlotState struct {
