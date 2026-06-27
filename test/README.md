@@ -11,12 +11,12 @@ Live HTTP/WebSocket tests against a running Aegis server. Developer tests build 
 
 ## Test wallet
 
-| Item | Value |
-|------|-------|
-| File | `aegis-test-keypair.json` (gitignored, project root) |
-| Public key | `Hgj2HKri7Re9RWucnhoETSnNqmBMmQCLZpuigHbfMhj` |
-| Generate | `make test-keypair` |
-| Fund | ~0.05 SOL on mainnet-beta |
+| Item       | Value                                                |
+| ---------- | ---------------------------------------------------- |
+| File       | `aegis-test-keypair.json` (gitignored, project root) |
+| Public key | `Hgj2HKri7Re9RWucnhoETSnNqmBMmQCLZpuigHbfMhj`        |
+| Generate   | `make test-keypair`                                  |
+| Fund       | ~0.05 SOL on mainnet-beta                            |
 
 ## Transfer target
 
@@ -45,6 +45,6 @@ make test-integration
 
 ## Configuration
 
-| Env | Default | Description |
-|-----|---------|-------------|
+| Env                   | Default                 | Description  |
+| --------------------- | ----------------------- | ------------ |
 | `AEGIS_TEST_BASE_URL` | `http://localhost:8080` | API base URL |

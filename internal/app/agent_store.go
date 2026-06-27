@@ -10,6 +10,7 @@ import (
 	"github.com/mira4sol/aegis/internal/storage"
 	"github.com/mira4sol/aegis/internal/storage/dbgen"
 	"github.com/mira4sol/aegis/pkg/aegis"
+	"go.uber.org/zap"
 )
 
 func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.TransactionID, decision agent.Decision) (string, error) {
@@ -22,7 +23,10 @@ func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.Tra
 		Inputs: inputs, Action: action, ConfidencePct: int32(decision.ConfidencePct),
 	})
 	if err != nil {
-		storage.LogDB(cp.logger, "InsertAgentDecision", err)
+		storage.LogDBOp(cp.logger, "InsertAgentDecision", err,
+			zap.String("transaction_id", string(txID)),
+			zap.String("decision_type", decision.Type),
+		)
 		return "", err
 	}
 	row, err := cp.q.GetTransaction(ctx, string(txID))
@@ -33,7 +37,19 @@ func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.Tra
 		ID: string(txID), Status: row.Status, Stage: row.Stage,
 		AgentDecisionID: pgtype.Text{String: decisionID, Valid: true},
 	})
-	storage.LogDB(cp.logger, "UpdateTransactionStatus.agent_decision_id", err)
+	storage.LogDBOp(cp.logger, "UpdateTransactionStatus.agent_decision_id", err,
+		zap.String("transaction_id", string(txID)),
+		zap.String("decision_id", decisionID),
+	)
+	if err == nil {
+		cp.logger.Info("agent decision persisted",
+			zap.String("transaction_id", string(txID)),
+			zap.String("decision_id", decisionID),
+			zap.String("decision_type", decision.Type),
+			zap.String("title", decision.Title),
+			zap.Int("confidence_pct", decision.ConfidencePct),
+		)
+	}
 	if cp.notify != nil {
 		cp.notify.BroadcastDecision(map[string]any{
 			"decision_id": decisionID, "transaction_id": txID,
@@ -44,13 +60,33 @@ func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.Tra
 	return decisionID, nil
 }
 
-func (cp *ControlPlane) persistRecoveryAction(ctx context.Context, txID aegis.TransactionID, decisionID, label, status string) {
+func (cp *ControlPlane) persistRecoveryAction(ctx context.Context, txID aegis.TransactionID, decisionID, label, status string) string {
+	recoveryID := "rec_" + uuid.NewString()
 	_, err := cp.q.InsertRecoveryAction(ctx, dbgen.InsertRecoveryActionParams{
-		ID: "rec_" + uuid.NewString(), TransactionID: string(txID),
+		ID: recoveryID, TransactionID: string(txID),
 		DecisionID: pgtype.Text{String: decisionID, Valid: decisionID != ""},
 		Label:      label, Status: status,
 	})
-	storage.LogDB(cp.logger, "InsertRecoveryAction", err)
+	storage.LogDBOp(cp.logger, "InsertRecoveryAction", err,
+		zap.String("transaction_id", string(txID)),
+		zap.String("recovery_id", recoveryID),
+		zap.String("status", status),
+		zap.String("label", label),
+	)
+	return recoveryID
+}
+
+func (cp *ControlPlane) updateRecoveryActionStatus(ctx context.Context, recoveryID, status string) {
+	if recoveryID == "" {
+		return
+	}
+	_, err := cp.q.UpdateRecoveryActionStatus(ctx, dbgen.UpdateRecoveryActionStatusParams{
+		ID: recoveryID, Status: status,
+	})
+	storage.LogDBOp(cp.logger, "UpdateRecoveryActionStatus", err,
+		zap.String("recovery_id", recoveryID),
+		zap.String("status", status),
+	)
 }
 
 func tipFromDecision(decision agent.Decision, fallback uint64) uint64 {

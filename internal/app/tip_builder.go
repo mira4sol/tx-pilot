@@ -9,6 +9,7 @@ import (
 	"github.com/mira4sol/aegis/internal/bundle"
 	"github.com/mira4sol/aegis/internal/tx"
 	"github.com/mira4sol/aegis/pkg/aegis"
+	"go.uber.org/zap"
 )
 
 type tipPlan struct {
@@ -91,7 +92,14 @@ func (cp *ControlPlane) commitTipDecision(ctx context.Context, txID aegis.Transa
 	if plan == nil {
 		return
 	}
-	decisionID, _ := cp.persistAgentDecision(ctx, txID, plan.Decision)
+	decisionID, err := cp.persistAgentDecision(ctx, txID, plan.Decision)
+	if err != nil {
+		cp.logger.Warn("tip decision not persisted",
+			zap.String("transaction_id", string(txID)),
+			zap.Error(err),
+		)
+		return
+	}
 	plan.DecisionID = decisionID
 }
 

@@ -95,6 +95,11 @@ func NewRiverQueue(ctx context.Context, pool *pgxpool.Pool, deps WorkerDeps, log
 	if err := client.Start(ctx); err != nil {
 		return nil, fmt.Errorf("start river client: %w", err)
 	}
+	if logger != nil {
+		logger.Info("river queue started",
+			zap.Strings("workers", []string{"status_poll", "webhook_delivery"}),
+		)
+	}
 	return &RiverQueue{client: client}, nil
 }
 
@@ -144,6 +149,17 @@ type StatusPollWorker struct {
 func (w *StatusPollWorker) Work(ctx context.Context, job *river.Job[StatusPollArgs]) error {
 	args := job.Args
 	txID := aegis.TransactionID(args.TransactionID)
+	sig := w.firstSig(args)
+	if w.deps.Logger != nil {
+		w.deps.Logger.Info("status poll tick",
+			zap.String("transaction_id", string(txID)),
+			zap.String("bundle_id", args.BundleID),
+			zap.String("signature", sig),
+			zap.Int("poll_attempt", args.Attempt),
+			zap.Duration("elapsed", args.pollElapsed()),
+			zap.String("submission_kind", args.SubmissionKind),
+		)
+	}
 
 	if args.SubmissionKind == string(aegis.SubmissionBundle) && args.BundleID != "" {
 		return w.pollBundle(ctx, job, txID, args)
@@ -157,8 +173,7 @@ func (w *StatusPollWorker) pollTransaction(ctx context.Context, job *river.Job[S
 	}
 	result, err := w.deps.RPC.GetSignatureStatuses(ctx, args.Signatures, false)
 	if err != nil {
-		// Transient RPC error: try again, do not penalize the transaction.
-		return w.reschedule(ctx, job, args)
+		return w.reschedule(ctx, job, args, "rpc_error")
 	}
 
 	if len(result.Value) > 0 && result.Value[0] != nil {
@@ -166,24 +181,20 @@ func (w *StatusPollWorker) pollTransaction(ctx context.Context, job *river.Job[S
 		// The signature landed. If it carries an execution error it is a
 		// terminal on-chain failure — stop immediately with the real reason.
 		if isExecutionError(st.Err) {
-			return w.markFailedOnChain(ctx, txID, args.BundleID, args.Signatures[0], st.Err, slotFromPtr(st.Slot))
+			return w.markFailedOnChain(ctx, txID, args, args.Signatures[0], st.Err, slotFromPtr(st.Slot))
 		}
 		if st.ConfirmationStatus != "" {
 			return w.applyConfirmation(ctx, job, txID, args.BundleID, args.Signatures[0], st.ConfirmationStatus, slotFromPtr(st.Slot))
 		}
-		// Seen by the cluster but not yet processed — keep polling.
-		return w.reschedule(ctx, job, args)
+		return w.reschedule(ctx, job, args, "not_yet_processed")
 	}
 
-	// Signature not found. Either it is still propagating, or it will never land
-	// (expired blockhash / dropped / fee-payer could not pay). Disambiguate via
-	// blockhash validity so we don't loop pointlessly.
 	if w.blockhashExpired(ctx, args.Blockhash) {
-		return w.markFailed(ctx, txID, args.BundleID, args.Signatures[0],
+		return w.markFailed(ctx, txID, args, args.Signatures[0],
 			aegis.FailureExpiredBlockhash, "Blockhash expired before the transaction landed",
 			"Refresh the blockhash and resubmit; the transaction was never included", 0, nil)
 	}
-	return w.reschedule(ctx, job, args)
+	return w.reschedule(ctx, job, args, "signature_not_found")
 }
 
 func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[StatusPollArgs], txID aegis.TransactionID, args StatusPollArgs) error {
@@ -197,7 +208,7 @@ func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[Status
 			len(result.Value) > 0 && result.Value[0] != nil {
 			st := result.Value[0]
 			if isExecutionError(st.Err) {
-				return w.markFailedOnChain(ctx, txID, args.BundleID, args.Signatures[0], st.Err, slotFromPtr(st.Slot))
+				return w.markFailedOnChain(ctx, txID, args, args.Signatures[0], st.Err, slotFromPtr(st.Slot))
 			}
 			if st.ConfirmationStatus != "" {
 				return w.applyConfirmation(ctx, job, txID, args.BundleID, args.Signatures[0], st.ConfirmationStatus, slotFromPtr(st.Slot))
@@ -209,7 +220,7 @@ func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[Status
 	// this before the inflight "Invalid" fast-fail so injected/expired blockhash
 	// failures are classified accurately rather than as a generic rejection.
 	if w.blockhashExpired(ctx, args.Blockhash) {
-		return w.markFailed(ctx, txID, args.BundleID, w.firstSig(args),
+		return w.markFailed(ctx, txID, args, w.firstSig(args),
 			aegis.FailureExpiredBlockhash, "Blockhash expired before the bundle landed",
 			"Refresh the blockhash and resubmit the bundle", 0, nil)
 	}
@@ -233,7 +244,7 @@ func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[Status
 	if ierr == nil && len(inflight.Value) > 0 {
 		switch inflight.Value[0].Status {
 		case "Failed":
-			return w.markFailed(ctx, txID, args.BundleID, w.firstSig(args),
+			return w.markFailed(ctx, txID, args, w.firstSig(args),
 				aegis.FailureBundleRejected, "Bundle rejected by Jito auction",
 				"Recalculate tip above the dynamic floor and resubmit", 0, nil)
 		case "Landed":
@@ -249,7 +260,7 @@ func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[Status
 			// past the grace period it means the bundle was never accepted or was
 			// dropped by the auction, so fail fast instead of waiting for expiry.
 			if args.pollElapsed() > InvalidGracePeriod {
-				return w.markFailed(ctx, txID, args.BundleID, w.firstSig(args),
+				return w.markFailed(ctx, txID, args, w.firstSig(args),
 					aegis.FailureBundleRejected, "Bundle dropped by Jito (inflight status Invalid)",
 					"Resubmit with a fresh blockhash and a competitive tip", 0,
 					map[string]any{"inflight_status": "Invalid"})
@@ -257,7 +268,7 @@ func (w *StatusPollWorker) pollBundle(ctx context.Context, job *river.Job[Status
 		}
 	}
 
-	return w.reschedule(ctx, job, args)
+	return w.reschedule(ctx, job, args, "bundle_pending")
 }
 
 func (w *StatusPollWorker) firstSig(args StatusPollArgs) string {
@@ -294,6 +305,17 @@ func (w *StatusPollWorker) applyConfirmation(ctx context.Context, job *river.Job
 	stage := mapConfirmation(confirmation)
 	leader := w.leaderAt(slot)
 
+	if w.deps.Logger != nil {
+		w.deps.Logger.Info("poll confirmation",
+			zap.String("transaction_id", string(txID)),
+			zap.String("confirmation_status", confirmation),
+			zap.String("stage", string(stage)),
+			zap.Uint64("slot", slot),
+			zap.String("leader", leader),
+			zap.String("source", "rpc_poll"),
+		)
+	}
+
 	txRow, _ := w.deps.Queries.GetTransaction(ctx, string(txID))
 	if stage != aegis.StageProcessed && stage != aegis.StageSubmitted && txRow.ID != "" && !txRow.ProcessedAt.Valid {
 		if err := w.emitStage(ctx, txID, bundleID, signature, aegis.StageProcessed, slot, leader, now); err == nil {
@@ -318,31 +340,54 @@ func (w *StatusPollWorker) applyConfirmation(ctx context.Context, job *river.Job
 		params.FinalizedAt = pgtype.Timestamptz{Time: now, Valid: true}
 		params.FinalizedSlot = pgtype.Int8{Int64: int64(slot), Valid: slot > 0}
 		if bundleID != "" {
-			_, _ = w.deps.Queries.UpdateBundleStatus(ctx, dbgen.UpdateBundleStatusParams{
+			_, bundleErr := w.deps.Queries.UpdateBundleStatus(ctx, dbgen.UpdateBundleStatusParams{
 				ID: bundleID, Status: "landed", LandedAt: pgtype.Timestamptz{Time: now, Valid: true},
 			})
+			storage.LogDBOp(w.deps.Logger, "UpdateBundleStatus.landed", bundleErr,
+				zap.String("transaction_id", string(txID)),
+				zap.String("bundle_id", bundleID),
+			)
 		}
 	}
-	_, _ = w.deps.Queries.UpdateTransactionStatus(ctx, params)
-	_ = w.deps.Tracker.Emit(ctx, lifecycle.StageEvent{
+	_, txErr := w.deps.Queries.UpdateTransactionStatus(ctx, params)
+	storage.LogDBOp(w.deps.Logger, "UpdateTransactionStatus.poll", txErr,
+		zap.String("transaction_id", string(txID)),
+		zap.String("stage", string(stage)),
+		zap.Uint64("slot", slot),
+	)
+	if emitErr := w.deps.Tracker.Emit(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Signature: aegis.Signature(signature),
 		BundleID: aegis.BundleID(bundleID), Stage: stage,
 		Slot: aegis.Slot(slot), Timestamp: now,
 		Metadata: map[string]any{"leader": leader, "source": "rpc_poll"},
-	})
+	}); emitErr != nil {
+		storage.LogDBOp(w.deps.Logger, "EmitLifecycle.poll", emitErr,
+			zap.String("transaction_id", string(txID)),
+			zap.String("stage", string(stage)),
+		)
+	}
 	w.broadcast(txID)
 	if stage != aegis.StageFinalized {
 		args := job.Args
 		if args.FirstPolledAtUnixMS == 0 {
 			args.FirstPolledAtUnixMS = time.Now().UnixMilli()
 		}
-		// Keep polling for finalization, but never beyond the total poll window.
 		if !args.pollDeadlineExceeded() {
 			args.Attempt++
 			if client := river.ClientFromContext[pgx.Tx](ctx); client != nil {
-				_, _ = client.Insert(ctx, args, &river.InsertOpts{
+				_, insertErr := client.Insert(ctx, args, &river.InsertOpts{
 					ScheduledAt: time.Now().Add(FinalizePollInterval),
 				})
+				if insertErr != nil {
+					storage.LogDBOp(w.deps.Logger, "InsertStatusPoll.finalize", insertErr,
+						zap.String("transaction_id", string(txID)),
+					)
+				} else if w.deps.Logger != nil {
+					w.deps.Logger.Info("status poll rescheduled for finalization",
+						zap.String("transaction_id", string(txID)),
+						zap.Duration("delay", FinalizePollInterval),
+					)
+				}
 			}
 		}
 	}
@@ -351,39 +396,69 @@ func (w *StatusPollWorker) applyConfirmation(ctx context.Context, job *river.Job
 
 // markFailedOnChain handles a transaction that landed but failed execution. The
 // raw on-chain error is classified into a human reason and preserved verbatim.
-func (w *StatusPollWorker) markFailedOnChain(ctx context.Context, txID aegis.TransactionID, bundleID, signature string, rawErr json.RawMessage, slot uint64) error {
+func (w *StatusPollWorker) markFailedOnChain(ctx context.Context, txID aegis.TransactionID, args StatusPollArgs, signature string, rawErr json.RawMessage, slot uint64) error {
+	if w.deps.Logger != nil {
+		w.deps.Logger.Info("on-chain execution failure",
+			zap.String("transaction_id", string(txID)),
+			zap.String("signature", signature),
+			zap.String("on_chain_error", string(rawErr)),
+			zap.Uint64("slot", slot),
+		)
+	}
 	class := failure.ClassifyOnChain(string(rawErr), failure.Evidence{Slot: slot})
-	return w.markFailed(ctx, txID, bundleID, signature, class.Kind, class.Title, class.RecommendedAction, slot,
+	return w.markFailed(ctx, txID, args, signature, class.Kind, class.Title, class.RecommendedAction, slot,
 		map[string]any{"on_chain_error": string(rawErr)})
 }
 
 // markFailed records a terminal failure: it updates the transaction (and bundle)
 // status, inserts a failure row with the reason, emits a lifecycle event, and
 // broadcasts the change. The poll is not rescheduled after this.
-func (w *StatusPollWorker) markFailed(ctx context.Context, txID aegis.TransactionID, bundleID, signature string, kind aegis.FailureKind, title, action string, slot uint64, extra map[string]any) error {
+func (w *StatusPollWorker) markFailed(ctx context.Context, txID aegis.TransactionID, args StatusPollArgs, signature string, kind aegis.FailureKind, title, action string, slot uint64, extra map[string]any) error {
 	now := time.Now().UTC()
 	if slot == 0 {
 		slot = w.currentSlot()
 	}
 	leader := w.leaderAt(slot)
 	tipLamports := int64(0)
-	if txRow, err := w.deps.Queries.GetTransaction(ctx, string(txID)); err == nil {
-		tipLamports = txRow.TipLamports
+	var txRow dbgen.Transaction
+	if row, err := w.deps.Queries.GetTransaction(ctx, string(txID)); err == nil {
+		txRow = row
+		tipLamports = row.TipLamports
 	}
-	_, _ = w.deps.Queries.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
+
+	if w.deps.Logger != nil {
+		w.deps.Logger.Info("poll failure recorded",
+			zap.String("transaction_id", string(txID)),
+			zap.String("failure_kind", string(kind)),
+			zap.String("title", title),
+			zap.String("recommended_action", action),
+			zap.Uint64("slot", slot),
+			zap.String("source", "rpc_poll"),
+		)
+	}
+
+	_, txErr := w.deps.Queries.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
 		ID: string(txID), Status: string(aegis.StatusFailed), Stage: string(aegis.StageFailed),
 		Signature:     pgtype.Text{String: signature, Valid: signature != ""},
-		BundleID:      pgtype.Text{String: bundleID, Valid: bundleID != ""},
+		BundleID:      pgtype.Text{String: args.BundleID, Valid: args.BundleID != ""},
 		TipLamports:   tipLamports,
 		FailureKind:   pgtype.Text{String: string(kind), Valid: true},
 		SubmittedSlot: pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 		Leader:        pgtype.Text{String: leader, Valid: leader != ""},
 		FailedAt:      pgtype.Timestamptz{Time: now, Valid: true},
 	})
-	if bundleID != "" {
-		_, _ = w.deps.Queries.UpdateBundleStatus(ctx, dbgen.UpdateBundleStatusParams{
-			ID: bundleID, Status: "failed", FailedAt: pgtype.Timestamptz{Time: now, Valid: true},
+	storage.LogDBOp(w.deps.Logger, "UpdateTransactionStatus.failed", txErr,
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(kind)),
+	)
+	if args.BundleID != "" {
+		_, bundleErr := w.deps.Queries.UpdateBundleStatus(ctx, dbgen.UpdateBundleStatusParams{
+			ID: args.BundleID, Status: "failed", FailedAt: pgtype.Timestamptz{Time: now, Valid: true},
 		})
+		storage.LogDBOp(w.deps.Logger, "UpdateBundleStatus.failed", bundleErr,
+			zap.String("transaction_id", string(txID)),
+			zap.String("bundle_id", args.BundleID),
+		)
 	}
 
 	detail := map[string]any{"reason": title, "slot": slot}
@@ -391,50 +466,65 @@ func (w *StatusPollWorker) markFailed(ctx context.Context, txID aegis.Transactio
 		detail[k] = v
 	}
 	evidence, _ := json.Marshal(detail)
-	_, _ = w.deps.Queries.InsertFailure(ctx, dbgen.InsertFailureParams{
+	_, failErr := w.deps.Queries.InsertFailure(ctx, dbgen.InsertFailureParams{
 		ID: "fail_" + uuid.NewString(), TransactionID: pgtype.Text{String: string(txID), Valid: true},
-		BundleID: pgtype.Text{String: bundleID, Valid: bundleID != ""},
+		BundleID: pgtype.Text{String: args.BundleID, Valid: args.BundleID != ""},
 		Kind:     string(kind), Title: title, Severity: "error",
 		Slot:              pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 		RecommendedAction: pgtype.Text{String: action, Valid: action != ""},
 		Evidence:          evidence,
 	})
+	storage.LogDBOp(w.deps.Logger, "InsertFailure", failErr,
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(kind)),
+		zap.String("title", title),
+	)
 
 	meta := map[string]any{"failure_kind": string(kind), "reason": title, "recommended_action": action}
 	for k, v := range extra {
 		meta[k] = v
 	}
-	_ = w.deps.Tracker.Emit(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Signature: aegis.Signature(signature), BundleID: aegis.BundleID(bundleID),
+	if emitErr := w.deps.Tracker.Emit(ctx, lifecycle.StageEvent{
+		TransactionID: txID, Signature: aegis.Signature(signature), BundleID: aegis.BundleID(args.BundleID),
 		Stage: aegis.StageFailed, Slot: aegis.Slot(slot), Timestamp: now,
 		Metadata: meta,
-	})
+	}); emitErr != nil {
+		storage.LogDBOp(w.deps.Logger, "EmitLifecycle.failed", emitErr,
+			zap.String("transaction_id", string(txID)),
+		)
+	}
 	w.broadcast(txID)
 
-	if w.deps.Recovery != nil {
-		txRow, err := w.deps.Queries.GetTransaction(ctx, string(txID))
-		if err == nil {
-			memo := ""
-			if txRow.Memo.Valid {
-				memo = txRow.Memo.String
-			}
-			w.deps.Recovery.Trigger(ctx, txID, kind, title, action, RecoveryContext{
-				TransactionID: txID, BundleID: bundleID, Signatures: []string{signature},
-				RetryAttempt: txRow.RetryAttempt, OpsMemo: memo, PolicyMode: aegis.PolicyMode(txRow.PolicyMode),
-			})
+	if w.deps.Recovery != nil && txRow.ID != "" {
+		memo := ""
+		if txRow.Memo.Valid {
+			memo = txRow.Memo.String
 		}
+		sigs := args.Signatures
+		if len(sigs) == 0 && signature != "" {
+			sigs = []string{signature}
+		}
+		w.deps.Recovery.Trigger(ctx, txID, kind, title, action, RecoveryContext{
+			TransactionID:  txID,
+			SubmissionKind: aegis.SubmissionKind(args.SubmissionKind),
+			BundleID:       args.BundleID,
+			Signatures:     sigs,
+			Blockhash:      args.Blockhash,
+			RetryAttempt:   txRow.RetryAttempt,
+			OpsMemo:        memo,
+			OpsLamports:    opsLamportsFromMemo(memo),
+			PolicyMode:     aegis.PolicyMode(txRow.PolicyMode),
+		})
 	}
 	return nil
 }
 
-func (w *StatusPollWorker) reschedule(ctx context.Context, job *river.Job[StatusPollArgs], args StatusPollArgs) error {
-	// Stamp the start of the polling window on the first reschedule so the total
-	// time spent polling is bounded regardless of attempt count.
+func (w *StatusPollWorker) reschedule(ctx context.Context, job *river.Job[StatusPollArgs], args StatusPollArgs, reason string) error {
 	if args.FirstPolledAtUnixMS == 0 {
 		args.FirstPolledAtUnixMS = time.Now().UnixMilli()
 	}
 	if args.pollDeadlineExceeded() || args.Attempt >= MaxPollAttempts {
-		return w.markFailed(ctx, aegis.TransactionID(args.TransactionID), args.BundleID, w.firstSig(args),
+		return w.markFailed(ctx, aegis.TransactionID(args.TransactionID), args, w.firstSig(args),
 			aegis.FailureDropped, "Transaction never reached a terminal state within the polling window",
 			"The transaction was neither confirmed nor rejected within 5m; resubmit with a fresh blockhash", 0,
 			map[string]any{"poll_window": MaxPollWindow.String(), "attempts": args.Attempt})
@@ -443,7 +533,29 @@ func (w *StatusPollWorker) reschedule(ctx context.Context, job *river.Job[Status
 	_, err := river.ClientFromContext[pgx.Tx](ctx).Insert(ctx, args, &river.InsertOpts{
 		ScheduledAt: time.Now().Add(PendingPollInterval),
 	})
-	return err
+	if err != nil {
+		storage.LogDBOp(w.deps.Logger, "InsertStatusPoll.reschedule", err,
+			zap.String("transaction_id", args.TransactionID),
+		)
+		return err
+	}
+	if w.deps.Logger != nil {
+		w.deps.Logger.Info("status poll rescheduled",
+			zap.String("transaction_id", args.TransactionID),
+			zap.Int("poll_attempt", args.Attempt),
+			zap.Duration("delay", PendingPollInterval),
+			zap.String("reason", reason),
+		)
+	}
+	return nil
+}
+
+func opsLamportsFromMemo(memo string) uint64 {
+	// Ops txs default to 1 lamport when amount is not stored separately.
+	if memo == "" {
+		return 0
+	}
+	return 1
 }
 
 func (w *StatusPollWorker) broadcast(txID aegis.TransactionID) {
@@ -505,7 +617,10 @@ func (w *StatusPollWorker) emitStage(ctx context.Context, txID aegis.Transaction
 	}
 	_, err := w.deps.Queries.UpdateTransactionStatus(ctx, params)
 	if err != nil {
-		storage.LogDB(w.deps.Logger, "UpdateTransactionStatus.backfill", err)
+		storage.LogDBOp(w.deps.Logger, "UpdateTransactionStatus.backfill", err,
+			zap.String("transaction_id", string(txID)),
+			zap.String("stage", string(stage)),
+		)
 		return err
 	}
 	return w.deps.Tracker.Emit(ctx, lifecycle.StageEvent{

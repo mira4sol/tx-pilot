@@ -8,12 +8,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/mira4sol/aegis/internal/storage"
 	"github.com/mira4sol/aegis/internal/storage/dbgen"
 	"github.com/mira4sol/aegis/pkg/aegis"
+	"go.uber.org/zap"
 )
 
 type Tracker struct {
 	q      *dbgen.Queries
+	logger *zap.Logger
 	shards int
 	chans  []chan eventJob
 	wg     sync.WaitGroup
@@ -35,11 +38,11 @@ type StageEvent struct {
 	Timestamp     time.Time
 }
 
-func NewTracker(q *dbgen.Queries, shards int) *Tracker {
+func NewTracker(q *dbgen.Queries, logger *zap.Logger, shards int) *Tracker {
 	if shards <= 0 {
 		shards = 8
 	}
-	t := &Tracker{q: q, shards: shards, chans: make([]chan eventJob, shards)}
+	t := &Tracker{q: q, logger: logger, shards: shards, chans: make([]chan eventJob, shards)}
 	for i := 0; i < shards; i++ {
 		t.chans[i] = make(chan eventJob, 256)
 		idx := i
@@ -47,7 +50,12 @@ func NewTracker(q *dbgen.Queries, shards int) *Tracker {
 		go func() {
 			defer t.wg.Done()
 			for job := range t.chans[idx] {
-				_ = t.process(job.ctx, job.ev)
+				if err := t.process(job.ctx, job.ev); err != nil {
+					storage.LogDBOp(t.logger, "InsertLifecycleEvent.async", err,
+						zap.String("transaction_id", string(job.ev.TransactionID)),
+						zap.String("stage", string(job.ev.Stage)),
+					)
+				}
 			}
 		}()
 	}
@@ -62,12 +70,21 @@ func (t *Tracker) shardKey(id string) int {
 	return int(h % uint32(t.shards))
 }
 
+func (t *Tracker) isSyncStage(stage aegis.LifecycleStage) bool {
+	switch stage {
+	case aegis.StageCreated, aegis.StageSubmitted, aegis.StageFailed,
+		aegis.StageProcessed, aegis.StageConfirmed, aegis.StageFinalized:
+		return true
+	default:
+		return false
+	}
+}
+
 func (t *Tracker) Emit(ctx context.Context, ev StageEvent) error {
 	if ev.Timestamp.IsZero() {
 		ev.Timestamp = time.Now().UTC()
 	}
-	// Critical stages are processed synchronously to guarantee timeline evidence.
-	if ev.Stage == aegis.StageCreated || ev.Stage == aegis.StageSubmitted || ev.Stage == aegis.StageFailed {
+	if t.isSyncStage(ev.Stage) {
 		return t.process(ctx, ev)
 	}
 	select {
@@ -104,11 +121,19 @@ func (t *Tracker) process(ctx context.Context, ev StageEvent) error {
 		LatencyMs: latency, Metadata: meta,
 	})
 	if err != nil {
+		storage.LogDBOp(t.logger, "InsertLifecycleEvent", err,
+			zap.String("transaction_id", string(ev.TransactionID)),
+			zap.String("stage", string(ev.Stage)),
+			zap.Uint64("slot", uint64(ev.Slot)),
+		)
 		return err
 	}
 
 	_, err = t.q.GetTransaction(ctx, string(ev.TransactionID))
 	if err != nil {
+		storage.LogDBOp(t.logger, "GetTransaction.lifecycle", err,
+			zap.String("transaction_id", string(ev.TransactionID)),
+		)
 		return err
 	}
 
@@ -139,7 +164,20 @@ func (t *Tracker) process(ctx context.Context, ev StageEvent) error {
 		}
 	}
 	_, err = t.q.UpdateTransactionStatus(ctx, params)
-	return err
+	if err != nil {
+		storage.LogDBOp(t.logger, "UpdateTransactionStatus.lifecycle", err,
+			zap.String("transaction_id", string(ev.TransactionID)),
+			zap.String("stage", string(ev.Stage)),
+			zap.Uint64("slot", uint64(ev.Slot)),
+		)
+		return err
+	}
+	storage.LogDBOp(t.logger, "lifecycle stage committed", nil,
+		zap.String("transaction_id", string(ev.TransactionID)),
+		zap.String("stage", string(ev.Stage)),
+		zap.Uint64("slot", uint64(ev.Slot)),
+	)
+	return nil
 }
 
 func DeltaMS(from, to time.Time) *int64 {

@@ -10,9 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mira4sol/aegis/internal/lifecycle"
 	"github.com/mira4sol/aegis/internal/scheduler"
+	"github.com/mira4sol/aegis/internal/storage"
 	"github.com/mira4sol/aegis/internal/storage/dbgen"
 	"github.com/mira4sol/aegis/internal/tx"
 	"github.com/mira4sol/aegis/pkg/aegis"
+	"go.uber.org/zap"
 )
 
 func (cp *ControlPlane) SubmitOps(ctx context.Context, req aegis.SubmitOpsRequest) (aegis.SubmitResponse, error) {
@@ -92,9 +94,15 @@ func (cp *ControlPlane) SubmitOps(ctx context.Context, req aegis.SubmitOpsReques
 	if err != nil {
 		return aegis.SubmitResponse{}, err
 	}
+	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
+	cp.logger.Info("transaction created",
+		zap.String("transaction_id", string(txID)),
+		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.Strings("signatures", sigs),
+	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
 		Metadata: map[string]any{"timing_reason": timing.Reason, "inject_expired": req.InjectExpiredBlockhash},
 	})

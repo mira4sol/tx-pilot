@@ -37,6 +37,12 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 		return
 	}
 
+	cp.logger.Info("failure recovery started",
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(kind)),
+		zap.String("title", title),
+	)
+
 	facts := agent.DecisionFacts{
 		TransactionID: string(txID),
 		Failure: failure.Classification{
@@ -53,17 +59,30 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 		facts.CurrentTip = uint64(row.TipLamports)
 		facts.RetryAttempt = int(row.RetryAttempt)
 		rc.RetryAttempt = row.RetryAttempt
+		if rc.OpsMemo == "" && row.Memo.Valid {
+			rc.OpsMemo = row.Memo.String
+		}
+		if rc.PolicyMode == "" {
+			rc.PolicyMode = aegis.PolicyMode(row.PolicyMode)
+		}
+		if rc.SubmissionKind == "" {
+			rc.SubmissionKind = aegis.SubmissionKind(row.SubmissionKind)
+		}
 	}
 
 	decision, err := cp.agent.Decide(ctx, facts)
 	if err != nil {
-		cp.logger.Warn("agent decision failed", zap.Error(err))
+		cp.logger.Warn("agent decision failed", zap.String("transaction_id", string(txID)), zap.Error(err))
 		return
 	}
-	decisionID, _ := cp.persistAgentDecision(ctx, txID, decision)
-	cp.persistRecoveryAction(ctx, txID, decisionID, decision.Title, "queued")
+	decisionID, err := cp.persistAgentDecision(ctx, txID, decision)
+	if err != nil {
+		return
+	}
+	recoveryID := cp.persistRecoveryAction(ctx, txID, decisionID, decision.Title, "queued")
 
 	if !isOpsTransaction(rc.OpsMemo) {
+		cp.updateRecoveryActionStatus(ctx, recoveryID, "done")
 		cp.logger.Info("client tx failure; AI advisory recorded",
 			zap.String("transaction_id", string(txID)), zap.String("summary", decision.Summary))
 		return
@@ -71,7 +90,7 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 
 	kindAction := actionKind(decision)
 	if kindAction == "abort" {
-		cp.persistRecoveryAction(ctx, txID, decisionID, "Abort recovery", "done")
+		cp.updateRecoveryActionStatus(ctx, recoveryID, "done")
 		return
 	}
 
@@ -88,12 +107,13 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 		time.Sleep(time.Duration(delaySlots) * 400 * time.Millisecond)
 	}
 
+	cp.updateRecoveryActionStatus(ctx, recoveryID, "running")
 	if err := cp.resubmitOps(ctx, txID, rc, decision); err != nil {
 		cp.logger.Warn("autonomous ops resubmit failed", zap.Error(err))
-		cp.persistRecoveryAction(ctx, txID, decisionID, "Resubmit failed: "+err.Error(), "failed")
+		cp.updateRecoveryActionStatus(ctx, recoveryID, "failed")
 		return
 	}
-	cp.persistRecoveryAction(ctx, txID, decisionID, decision.Summary, "running")
+	cp.updateRecoveryActionStatus(ctx, recoveryID, "done")
 }
 
 func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.TransactionID, rc recoveryContext, decision agent.Decision) error {
@@ -175,9 +195,10 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 	if err != nil {
 		return err
 	}
+	storage.LogDBResult(cp.logger, "CreateTransaction", string(newTxID), nil)
 	cp.commitTipDecision(ctx, newTxID, &plan)
 
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: newTxID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
 		Metadata: map[string]any{"retry_of": string(parentID), "agent_action": decision.Action},
 	})
@@ -189,7 +210,10 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 	_, err = cp.q.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
 		ID: string(parentID), Status: parentRow.Status, Stage: parentRow.Stage, RetryAttempt: retryAttempt,
 	})
-	storage.LogDB(cp.logger, "UpdateTransactionStatus.retry_attempt", err)
+	storage.LogDBOp(cp.logger, "UpdateTransactionStatus.retry_attempt", err,
+		zap.String("transaction_id", string(parentID)),
+		zap.Int32("retry_attempt", retryAttempt),
+	)
 
 	bundleID, err := cp.forwardOpsTransaction(ctx, newTxID, opsEncoded, aegis.EncodingBase64, sigs[0], blockhash.String(), plan)
 	if err != nil {

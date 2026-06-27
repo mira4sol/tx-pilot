@@ -82,6 +82,15 @@ func (cp *ControlPlane) SetRiver(client *river.Client[pgx.Tx]) {
 
 func (cp *ControlPlane) RecoveryBridge() *RecoveryBridge { return cp.recovery }
 
+func (cp *ControlPlane) emitLifecycle(ctx context.Context, ev lifecycle.StageEvent) {
+	if err := cp.tracker.Emit(ctx, ev); err != nil {
+		storage.LogDBOp(cp.logger, "EmitLifecycle", err,
+			zap.String("transaction_id", string(ev.TransactionID)),
+			zap.String("stage", string(ev.Stage)),
+		)
+	}
+}
+
 func (cp *ControlPlane) advisoryTipFloor(ctx context.Context) uint64 {
 	congestion := cp.slotState.CongestionScore()
 	tipRes, err := cp.tip.ResolveTip(ctx, bundle.ResolveInput{
@@ -141,9 +150,15 @@ func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req aegis.SubmitT
 	if err != nil {
 		return aegis.SubmitResponse{}, err
 	}
+	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
+	cp.logger.Info("transaction created",
+		zap.String("transaction_id", string(txID)),
+		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.Strings("signatures", sigs),
+	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
 	})
 
@@ -218,9 +233,15 @@ func (cp *ControlPlane) SubmitBundle(ctx context.Context, req aegis.SubmitBundle
 	if err != nil {
 		return aegis.SubmitResponse{}, err
 	}
+	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
+	cp.logger.Info("transaction created",
+		zap.String("transaction_id", string(txID)),
+		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.Strings("signatures", sigs),
+	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
 	})
 
@@ -293,7 +314,10 @@ func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.Transactio
 			TargetSlot:  pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 			SubmittedAt: pgtype.Timestamptz{Time: now, Valid: true},
 		})
-		storage.LogDB(cp.logger, "CreateBundle", err)
+		storage.LogDBOp(cp.logger, "CreateBundle", err,
+			zap.String("transaction_id", string(txID)),
+			zap.String("bundle_id", bundleID),
+		)
 	}
 
 	_, err := cp.q.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
@@ -305,9 +329,27 @@ func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.Transactio
 		Leader:        pgtype.Text{String: leader, Valid: leader != ""},
 		SubmittedAt:   pgtype.Timestamptz{Time: now, Valid: true},
 	})
-	storage.LogDB(cp.logger, "UpdateTransactionStatus.submitted", err)
+	storage.LogDBOp(cp.logger, "UpdateTransactionStatus.submitted", err,
+		zap.String("transaction_id", string(txID)),
+		zap.String("bundle_id", bundleID),
+		zap.String("signature", primarySig),
+		zap.Uint64("slot", slot),
+		zap.String("leader", leader),
+		zap.Uint64("tip_lamports", plan.Lamports),
+	)
+	if err == nil {
+		cp.logger.Info("transaction submitted",
+			zap.String("transaction_id", string(txID)),
+			zap.String("bundle_id", bundleID),
+			zap.String("signature", primarySig),
+			zap.Uint64("slot", slot),
+			zap.String("leader", leader),
+			zap.Uint64("tip_lamports", plan.Lamports),
+			zap.String("submit_path", submitPath),
+		)
+	}
 
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Signature: aegis.Signature(primarySig),
 		BundleID: aegis.BundleID(bundleID), Stage: aegis.StageSubmitted,
 		Slot: aegis.Slot(slot), Timestamp: now,
@@ -412,8 +454,17 @@ func (cp *ControlPlane) handleSubmitFailure(ctx context.Context, txID aegis.Tran
 		Leader:        pgtype.Text{String: cp.slotState.LeaderAt(slot), Valid: true},
 		FailedAt:      pgtype.Timestamptz{Time: now, Valid: true},
 	})
-	storage.LogDB(cp.logger, "UpdateTransactionStatus.failed", dbErr)
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	storage.LogDBOp(cp.logger, "UpdateTransactionStatus.failed", dbErr,
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(class.Kind)),
+	)
+	cp.logger.Info("submit failure recorded",
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(class.Kind)),
+		zap.String("title", class.Title),
+		zap.Uint64("slot", slot),
+	)
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: txID, Stage: aegis.StageFailed, Slot: aegis.Slot(slot), Timestamp: now,
 		Metadata: map[string]any{"error": err.Error(), "failure_kind": string(class.Kind)},
 	})
@@ -441,8 +492,21 @@ func (cp *ControlPlane) OnStreamSignature(ctx context.Context, signature string,
 		ProcessedAt:   pgtype.Timestamptz{Time: now, Valid: true},
 		Leader:        pgtype.Text{String: leader, Valid: leader != ""},
 	})
-	storage.LogDB(cp.logger, "UpdateTransactionStatus.stream_processed", err)
-	_ = cp.tracker.Emit(ctx, lifecycle.StageEvent{
+	storage.LogDBOp(cp.logger, "UpdateTransactionStatus.stream_processed", err,
+		zap.String("transaction_id", string(entry.TransactionID)),
+		zap.String("signature", signature),
+		zap.Uint64("slot", slot),
+	)
+	if err == nil {
+		cp.logger.Info("geyser processed",
+			zap.String("transaction_id", string(entry.TransactionID)),
+			zap.String("signature", signature),
+			zap.Uint64("slot", slot),
+			zap.String("leader", leader),
+			zap.String("source", "geyser_stream"),
+		)
+	}
+	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: entry.TransactionID, Signature: entry.Signature,
 		BundleID: entry.BundleID, Stage: aegis.StageProcessed,
 		Slot: aegis.Slot(slot), Timestamp: now,
@@ -453,6 +517,9 @@ func (cp *ControlPlane) OnStreamSignature(ctx context.Context, signature string,
 
 func (cp *ControlPlane) enqueueStatusPoll(txID aegis.TransactionID, kind aegis.SubmissionKind, bundleID string, sigs []string, blockhash string) {
 	if cp.river == nil {
+		cp.logger.Warn("status poll skipped: river client not configured",
+			zap.String("transaction_id", string(txID)),
+		)
 		return
 	}
 	_, err := cp.river.Insert(context.Background(), queue.StatusPollArgs{
@@ -466,7 +533,23 @@ func (cp *ControlPlane) enqueueStatusPoll(txID aegis.TransactionID, kind aegis.S
 	}, &river.InsertOpts{
 		ScheduledAt: time.Now().Add(queue.PendingPollInterval),
 	})
-	storage.LogDB(cp.logger, "InsertStatusPoll", err)
+	if err != nil {
+		storage.LogDBOp(cp.logger, "InsertStatusPoll", err,
+			zap.String("transaction_id", string(txID)),
+			zap.String("bundle_id", bundleID),
+		)
+		return
+	}
+	sig := ""
+	if len(sigs) > 0 {
+		sig = sigs[0]
+	}
+	cp.logger.Info("status poll enqueued",
+		zap.String("transaction_id", string(txID)),
+		zap.String("bundle_id", bundleID),
+		zap.String("signature", sig),
+		zap.Duration("delay", queue.PendingPollInterval),
+	)
 }
 
 func (cp *ControlPlane) recordFailure(ctx context.Context, txID aegis.TransactionID, bundleID string, class failure.Classification) {
@@ -479,7 +562,12 @@ func (cp *ControlPlane) recordFailure(ctx context.Context, txID aegis.Transactio
 		Slot:              pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 		RecommendedAction: pgtype.Text{String: class.RecommendedAction, Valid: true}, Evidence: evidence,
 	})
-	storage.LogDB(cp.logger, "InsertFailure", err)
+	storage.LogDBOp(cp.logger, "InsertFailure", err,
+		zap.String("transaction_id", string(txID)),
+		zap.String("failure_kind", string(class.Kind)),
+		zap.String("title", class.Title),
+		zap.Uint64("slot", slot),
+	)
 	if cp.notify != nil {
 		cp.notify.BroadcastFailure(class)
 	}
