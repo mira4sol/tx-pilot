@@ -1021,12 +1021,10 @@ function CenterPanel({ transactions, selectedTxId, onSelectTx, pipelineCounts, p
       <div
         className="aegis-scroll"
         style={{
-          flex: traceOpen ? "0 1 auto" : 1,
-          maxHeight: traceOpen ? "min(42%, 320px)" : undefined,
+          flex: 1,
           minHeight: 0,
           overflowY: "auto",
           padding: 12,
-          paddingBottom: traceOpen ? 8 : 12,
           display: "flex",
           flexDirection: "column",
           gap: 10,
@@ -1034,35 +1032,13 @@ function CenterPanel({ transactions, selectedTxId, onSelectTx, pipelineCounts, p
       >
         <PipelineHero counts={pipelineCounts} latencies={pipelineLatencies} />
         <TxFeed transactions={transactions} selectedId={selectedTxId} onSelect={onSelectTx} />
-        {!traceOpen && (
-          <ReplayTimeline
-            tx={null}
-            events={[]}
-            cluster={cluster}
-            onClose={() => onSelectTx("")}
-          />
-        )}
+        <ReplayTimeline
+          tx={selectedTx}
+          events={timelineEvents}
+          cluster={cluster}
+          onClose={() => onSelectTx("")}
+        />
       </div>
-      {traceOpen && (
-        <div style={{
-          flex: 1,
-          minHeight: 180,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          borderTop: `1px solid ${C.borderBright}`,
-          background: C.bg,
-          padding: "0 12px 12px",
-        }}>
-          <ReplayTimeline
-            tx={selectedTx}
-            events={timelineEvents}
-            cluster={cluster}
-            onClose={() => onSelectTx("")}
-            docked
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -21,25 +21,7 @@ Aegis is an autonomous Solana transaction control plane. It observes Yellowstone
 ## Data Flow
 
 ```mermaid
-sequenceDiagram
-    participant Client
-    participant API as ControlPlane
-    participant AI as OpenAIAgent
-    participant Jito
-    participant Geyser
-    participant RPC
-    participant DB as Postgres
-
-    Client->>API: POST /v1/transactions (signed tx)
-    API->>AI: DecideTip (congestion, floor, leader)
-    AI-->>API: tip_lamports + reasoning
-    API->>API: Build server-signed tip tx
-    API->>Jito: sendBundle [client tx, tip tx]
-    API->>DB: transactions + bundles + agent_decisions
-    Geyser-->>API: signature seen (processed)
-    API->>DB: lifecycle_events (stream source)
-    RPC-->>API: confirmed / finalized
-    API->>DB: commitment progression + latency_ms
+z
 ```
 
 ## Submission paths
