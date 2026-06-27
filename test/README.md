@@ -39,6 +39,7 @@ Bundle tests add a second tx tipping a Jito tip account (1000 lamports minimum).
 make test-integration-developer
 make test-integration-dashboard
 make test-integration-ws
+make test-integration-lifecycle   # requires AEGIS_RUN_BOUNTY_LOG=1, live mainnet server
 make test-integration
 ```
 

@@ -32,6 +32,7 @@ type Config struct {
 	KeypairPath          string
 	WebhooksEnabled      bool
 	WebhookSigningSecret string
+	WebhookURL           string
 }
 
 func Load(envFile string) (*Config, error) {
@@ -61,6 +62,7 @@ func Load(envFile string) (*Config, error) {
 		KeypairPath:          os.Getenv("AEGIS_KEYPAIR_PATH"),
 		WebhooksEnabled:      getEnvBool("AEGIS_WEBHOOKS_ENABLED", false),
 		WebhookSigningSecret: os.Getenv("AEGIS_WEBHOOK_SIGNING_SECRET"),
+		WebhookURL:           os.Getenv("AEGIS_WEBHOOK_URL"),
 	}
 
 	return cfg, Validate(cfg)
@@ -115,7 +117,7 @@ func Validate(cfg *Config) error {
 		missing = append(missing, "OPENAI_API_KEY")
 	}
 	if cfg.KeypairPath == "" {
-		// optional: server no longer signs transactions; keypair used only by CLI/tests
+		missing = append(missing, "AEGIS_KEYPAIR_PATH")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))

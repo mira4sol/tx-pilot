@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	TestKeypairFile = "aegis-test-keypair.json"
-	DevRecipient    = "5SEZmBS8s41cJ8g3gmLS1BexujHcNZHe5qznPJMdVUsh"
+	TestKeypairFile     = "aegis-test-keypair.json"
+	DevRecipient        = "5SEZmBS8s41cJ8g3gmLS1BexujHcNZHe5qznPJMdVUsh"
 	DevTransferLamports = uint64(1)
 )
 

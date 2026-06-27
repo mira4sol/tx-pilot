@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/mira4sol/aegis/internal/bundle"
 	"github.com/mira4sol/aegis/internal/config"
 	"github.com/mira4sol/aegis/internal/storage/dbgen"
 	"github.com/mira4sol/aegis/internal/stream"
@@ -16,26 +18,27 @@ type Service struct {
 	cfg       *config.Config
 	slotState *stream.SlotState
 	q         *dbgen.Queries
+	tip       *bundle.TipResolver
 	logger    *zap.Logger
 }
 
-func NewService(cfg *config.Config, slotState *stream.SlotState, q *dbgen.Queries, logger *zap.Logger) *Service {
-	return &Service{cfg: cfg, slotState: slotState, q: q, logger: logger}
+func NewService(cfg *config.Config, slotState *stream.SlotState, q *dbgen.Queries, tip *bundle.TipResolver, logger *zap.Logger) *Service {
+	return &Service{cfg: cfg, slotState: slotState, q: q, tip: tip, logger: logger}
 }
 
 type Snapshot struct {
-	GeneratedAt time.Time      `json:"generated_at"`
-	Network     NetworkTicker  `json:"network"`
-	Slots       SlotFeed       `json:"slots"`
-	Leaders     LeaderSchedule `json:"leaders"`
-	Health      NetworkHealth  `json:"health"`
-	Bundles     BundleMetrics  `json:"bundles"`
-	Pipeline    Pipeline       `json:"pipeline"`
-	Transactions TransactionStream `json:"transactions"`
-	Decisions   AIDecisions    `json:"ai_decisions"`
-	Landing     LandingProbability `json:"landing_probability"`
-	Failures    FailureAnalysis `json:"failures"`
-	Recovery    RecoveryPanel  `json:"recovery"`
+	GeneratedAt  time.Time          `json:"generated_at"`
+	Network      NetworkTicker      `json:"network"`
+	Slots        SlotFeed           `json:"slots"`
+	Leaders      LeaderSchedule     `json:"leaders"`
+	Health       NetworkHealth      `json:"health"`
+	Bundles      BundleMetrics      `json:"bundles"`
+	Pipeline     Pipeline           `json:"pipeline"`
+	Transactions TransactionStream  `json:"transactions"`
+	Decisions    AIDecisions        `json:"ai_decisions"`
+	Landing      LandingProbability `json:"landing_probability"`
+	Failures     FailureAnalysis    `json:"failures"`
+	Recovery     RecoveryPanel      `json:"recovery"`
 }
 
 type NetworkTicker struct {
@@ -72,48 +75,48 @@ type LeaderWindow struct {
 }
 
 type NetworkHealth struct {
-	CongestionPct           int     `json:"congestion_pct"`
-	ConfirmationLatencyMS   float64 `json:"confirmation_latency_ms"`
-	SlotJitterMS            float64 `json:"slot_jitter_ms"`
-	ValidatorStabilityPct   int     `json:"validator_stability_pct"`
-	NetworkHealthPct        int     `json:"network_health_pct"`
+	CongestionPct         int     `json:"congestion_pct"`
+	ConfirmationLatencyMS float64 `json:"confirmation_latency_ms"`
+	SlotJitterMS          float64 `json:"slot_jitter_ms"`
+	ValidatorStabilityPct int     `json:"validator_stability_pct"`
+	NetworkHealthPct      int     `json:"network_health_pct"`
 }
 
 type BundleMetrics struct {
-	Sent            int64   `json:"sent"`
-	Landed          int64   `json:"landed"`
-	SuccessPct      float64 `json:"success_pct"`
-	AvgTipLamports  float64 `json:"avg_tip_lamports"`
-	AvgTipSOL       float64 `json:"avg_tip_sol"`
-	Retries         int64   `json:"retries"`
-	Pending         int64   `json:"pending"`
+	Sent           int64   `json:"sent"`
+	Landed         int64   `json:"landed"`
+	SuccessPct     float64 `json:"success_pct"`
+	AvgTipLamports float64 `json:"avg_tip_lamports"`
+	AvgTipSOL      float64 `json:"avg_tip_sol"`
+	Retries        int64   `json:"retries"`
+	Pending        int64   `json:"pending"`
 }
 
 type Pipeline struct {
-	Realtime bool          `json:"realtime"`
+	Realtime bool            `json:"realtime"`
 	Stages   []PipelineStage `json:"stages"`
 	Summary  PipelineSummary `json:"summary"`
 }
 
 type PipelineStage struct {
-	Stage                string `json:"stage"`
-	Label                string `json:"label"`
-	Count                int64  `json:"count"`
-	DeltaFromPreviousMS  *int64 `json:"delta_from_previous_ms"`
+	Stage               string `json:"stage"`
+	Label               string `json:"label"`
+	Count               int64  `json:"count"`
+	DeltaFromPreviousMS *int64 `json:"delta_from_previous_ms"`
 }
 
 type PipelineSummary struct {
-	TotalInFlight       int64   `json:"total_in_flight"`
-	AvgEndToEndSeconds  float64 `json:"avg_end_to_end_seconds"`
-	SuccessRatePct      float64 `json:"success_rate_pct"`
-	FailedToday         int64   `json:"failed_today"`
-	Retried             int64   `json:"retried"`
+	TotalInFlight      int64   `json:"total_in_flight"`
+	AvgEndToEndSeconds float64 `json:"avg_end_to_end_seconds"`
+	SuccessRatePct     float64 `json:"success_rate_pct"`
+	FailedToday        int64   `json:"failed_today"`
+	Retried            int64   `json:"retried"`
 }
 
 type TransactionStream struct {
-	Rows       []TransactionRow `json:"rows"`
-	RowCount   int              `json:"row_count"`
-	Streaming  bool             `json:"streaming"`
+	Rows      []TransactionRow `json:"rows"`
+	RowCount  int              `json:"row_count"`
+	Streaming bool             `json:"streaming"`
 }
 
 type TransactionRow struct {
@@ -136,6 +139,7 @@ type AIDecisions struct {
 
 type DecisionRow struct {
 	DecisionID    string         `json:"decision_id"`
+	TransactionID string         `json:"transaction_id,omitempty"`
 	Type          string         `json:"type"`
 	Title         string         `json:"title"`
 	Summary       string         `json:"summary"`
@@ -160,15 +164,17 @@ type FailureAnalysis struct {
 }
 
 type FailureRow struct {
-	FailureID         string    `json:"failure_id"`
-	Kind              string    `json:"kind"`
-	Title             string    `json:"title"`
-	Slot              uint64    `json:"slot"`
-	Severity          string    `json:"severity"`
-	RecommendedAction string    `json:"recommended_action"`
-	TransactionID     string    `json:"transaction_id"`
-	BundleID          string    `json:"bundle_id"`
-	CreatedAt         time.Time `json:"created_at"`
+	FailureID         string         `json:"failure_id"`
+	Kind              string         `json:"kind"`
+	Title             string         `json:"title"`
+	Reason            string         `json:"reason,omitempty"`
+	Evidence          map[string]any `json:"evidence,omitempty"`
+	Slot              uint64         `json:"slot"`
+	Severity          string         `json:"severity"`
+	RecommendedAction string         `json:"recommended_action"`
+	TransactionID     string         `json:"transaction_id"`
+	BundleID          string         `json:"bundle_id"`
+	CreatedAt         time.Time      `json:"created_at"`
 }
 
 type RecoveryPanel struct {
@@ -186,37 +192,67 @@ type RecoveryRow struct {
 func (s *Service) Snapshot(ctx context.Context) (Snapshot, error) {
 	currentSlot, tps, slots, leaders, lastUpdate, _ := s.slotState.Snapshot()
 	leader := leaders[currentSlot]
-	congestion := computeCongestion(tps)
+	congestion := s.slotState.CongestionPct()
 	healthLatency, _ := s.q.AvgProcessedToConfirmedMS(ctx)
 	bundleMetrics, _ := s.bundleMetrics(ctx)
 	failedToday, _ := s.q.CountFailuresToday(ctx)
 	retries, _ := s.q.CountRetries(ctx)
 	stageCounts, _ := s.q.CountTransactionsByStage(ctx)
+	tipFloor := s.currentTipFloor(ctx)
 
 	snap := Snapshot{
 		GeneratedAt: time.Now().UTC(),
 		Network: NetworkTicker{
 			Slot: currentSlot, CurrentLeader: shortLeader(leader), NextJitoLeader: findNextJito(leaders, currentSlot),
 			CongestionPct: congestion, BundleLandRatePct: bundleMetrics.SuccessPct,
-			TipFloorLamports: 12000, TipFloorSOL: 0.000012, TPS: int(tps),
+			TipFloorLamports: tipFloor, TipFloorSOL: float64(tipFloor) / 1e9, TPS: int(tps),
 			SlotDriftMS: slotDriftMS(lastUpdate), NetworkHealthPct: networkHealth(congestion, healthLatency),
 			Cluster: s.cfg.Cluster,
 		},
-		Slots: SlotFeed{Slots: slots},
+		Slots:   SlotFeed{Slots: slots},
 		Leaders: buildLeaderSchedule(currentSlot, leaders),
 		Health: NetworkHealth{
 			CongestionPct: congestion, ConfirmationLatencyMS: healthLatency,
-			SlotJitterMS: 2.4, ValidatorStabilityPct: 97, NetworkHealthPct: networkHealth(congestion, healthLatency),
+			SlotJitterMS: s.slotState.SlotJitterMS(), ValidatorStabilityPct: s.slotState.ValidatorStabilityPct(),
+			NetworkHealthPct: networkHealth(congestion, healthLatency),
 		},
-		Bundles: bundleMetrics,
-		Pipeline: buildPipeline(stageCounts, failedToday, retries, bundleMetrics.SuccessPct),
+		Bundles:      bundleMetrics,
+		Pipeline:     buildPipeline(ctx, s.q, stageCounts, failedToday, retries, bundleMetrics.SuccessPct),
 		Transactions: s.transactionStream(ctx),
-		Decisions: s.aiDecisions(ctx),
-		Landing: s.landingProbability(congestion, bundleMetrics.SuccessPct),
-		Failures: s.failures(ctx),
-		Recovery: s.recovery(ctx),
+		Decisions:    s.aiDecisions(ctx),
+		Landing:      s.landingProbability(ctx, congestion, bundleMetrics),
+		Failures:     s.failures(ctx),
+		Recovery:     s.recovery(ctx),
 	}
+	s.recordChartPoint(ctx, congestion, tipFloor, healthLatency)
 	return snap, nil
+}
+
+func (s *Service) currentTipFloor(ctx context.Context) uint64 {
+	if s.tip == nil {
+		return s.cfg.JitoMinTipLamports
+	}
+	floor, err := s.tip.CurrentFloorLamports(ctx)
+	if err != nil {
+		return s.cfg.JitoMinTipLamports
+	}
+	return floor
+}
+
+func (s *Service) recordChartPoint(ctx context.Context, congestion int, tipFloor uint64, latency float64) {
+	payload, _ := json.Marshal(map[string]any{
+		"congestion_pct": congestion, "tip_floor_lamports": tipFloor, "confirmation_latency_ms": latency,
+	})
+	_ = s.q.InsertChartPoint(ctx, dbgen.InsertChartPointParams{
+		Series: "network_health", PointTime: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}, Payload: payload,
+	})
+}
+
+func (s *Service) Charts(ctx context.Context, series string) ([]dbgen.ChartPoint, error) {
+	since := time.Now().UTC().Add(-24 * time.Hour)
+	return s.q.ListChartPoints(ctx, dbgen.ListChartPointsParams{
+		Series: series, PointTime: pgtype.Timestamptz{Time: since, Valid: true},
+	})
 }
 
 func (s *Service) transactionStream(ctx context.Context) TransactionStream {
@@ -267,7 +303,8 @@ func (s *Service) aiDecisions(ctx context.Context) AIDecisions {
 		_ = json.Unmarshal(r.Inputs, &inputs)
 		_ = json.Unmarshal(r.Action, &action)
 		out.Decisions = append(out.Decisions, DecisionRow{
-			DecisionID: r.ID, Type: r.DecisionType, Title: r.Title, Summary: r.Summary,
+			DecisionID: r.ID, TransactionID: r.TransactionID.String,
+			Type: r.DecisionType, Title: r.Title, Summary: r.Summary,
 			Inputs: inputs, Action: action, ConfidencePct: r.ConfidencePct, CreatedAt: r.CreatedAt.Time,
 		})
 	}
@@ -295,6 +332,7 @@ func (s *Service) failures(ctx context.Context) FailureAnalysis {
 		}
 		out.Failures = append(out.Failures, FailureRow{
 			FailureID: r.ID, Kind: r.Kind, Title: r.Title, Slot: slot, Severity: r.Severity,
+			Reason: failureReason(r.Evidence), Evidence: parseEvidence(r.Evidence),
 			RecommendedAction: r.RecommendedAction.String, TransactionID: txID, BundleID: bundleID,
 			CreatedAt: r.CreatedAt.Time,
 		})
@@ -334,38 +372,107 @@ func (s *Service) bundleMetrics(ctx context.Context) (BundleMetrics, error) {
 	return BundleMetrics{
 		Sent: counts.Sent, Landed: counts.Landed, SuccessPct: success,
 		AvgTipLamports: avgTip, AvgTipSOL: avgTip / 1e9, Pending: counts.Pending,
+		Retries: retriesFromDB(ctx, s.q),
 	}, nil
 }
 
-func (s *Service) landingProbability(congestion int, successRate float64) LandingProbability {
-	lp := LandingProbability{ProbabilityPct: int(math.Max(40, math.Min(95, successRate-float64(congestion)*0.1)))}
-	lp.Factors.BundleTipAdequacyPct = 88
-	lp.Factors.LeaderStabilityPct = 73
+func retriesFromDB(ctx context.Context, q *dbgen.Queries) int64 {
+	n, _ := q.CountRetries(ctx)
+	return n
+}
+
+func (s *Service) landingProbability(ctx context.Context, congestion int, metrics BundleMetrics) LandingProbability {
+	tipFloor := s.currentTipFloor(ctx)
+	avgTip := metrics.AvgTipLamports
+	tipAdequacy := 70
+	if avgTip > 0 && float64(tipFloor) > 0 {
+		tipAdequacy = int(math.Min(99, (avgTip/float64(tipFloor))*100))
+	}
+	stability := s.slotState.ValidatorStabilityPct()
+	lp := LandingProbability{ProbabilityPct: int(math.Max(40, math.Min(95, metrics.SuccessPct-float64(congestion)*0.1)))}
+	lp.Factors.BundleTipAdequacyPct = tipAdequacy
+	lp.Factors.LeaderStabilityPct = stability
 	lp.Factors.SlotCompetitionPct = max(30, 100-congestion)
 	lp.Factors.NetworkReadinessPct = max(40, 100-congestion/2)
 	return lp
 }
 
-func buildPipeline(stageCounts []dbgen.CountTransactionsByStageRow, failedToday, retries int64, successRate float64) Pipeline {
+func buildPipeline(ctx context.Context, q *dbgen.Queries, stageCounts []dbgen.CountTransactionsByStageRow, failedToday, retries int64, successRate float64) Pipeline {
 	counts := map[string]int64{}
 	for _, row := range stageCounts {
 		counts[row.Stage] = row.Count
 	}
+	avgLatency := avgStageLatency(ctx, q)
 	stages := []PipelineStage{
 		{Stage: "created", Label: "CR", Count: counts["created"]},
-		{Stage: "submitted", Label: "SB", Count: counts["submitted"], DeltaFromPreviousMS: int64Ptr(14)},
-		{Stage: "processed", Label: "PR", Count: counts["processed"], DeltaFromPreviousMS: int64Ptr(42)},
-		{Stage: "confirmed", Label: "CF", Count: counts["confirmed"], DeltaFromPreviousMS: int64Ptr(310)},
-		{Stage: "finalized", Label: "FN", Count: counts["finalized"], DeltaFromPreviousMS: int64Ptr(820)},
+		{Stage: "submitted", Label: "SB", Count: counts["submitted"], DeltaFromPreviousMS: avgLatency["submitted"]},
+		{Stage: "processed", Label: "PR", Count: counts["processed"], DeltaFromPreviousMS: avgLatency["processed"]},
+		{Stage: "confirmed", Label: "CF", Count: counts["confirmed"], DeltaFromPreviousMS: avgLatency["confirmed"]},
+		{Stage: "finalized", Label: "FN", Count: counts["finalized"], DeltaFromPreviousMS: avgLatency["finalized"]},
 	}
 	inFlight := counts["created"] + counts["submitted"] + counts["processed"] + counts["confirmed"]
+	avgE2E := 0.0
+	if v := avgEndToEndSeconds(ctx, q); v > 0 {
+		avgE2E = v
+	}
 	return Pipeline{
 		Realtime: true, Stages: stages,
 		Summary: PipelineSummary{
-			TotalInFlight: inFlight, AvgEndToEndSeconds: 1.19,
+			TotalInFlight: inFlight, AvgEndToEndSeconds: avgE2E,
 			SuccessRatePct: successRate, FailedToday: failedToday, Retried: retries,
 		},
 	}
+}
+
+func avgStageLatency(ctx context.Context, q *dbgen.Queries) map[string]*int64 {
+	out := map[string]*int64{}
+	txs, err := q.ListRecentTransactions(ctx, 100)
+	if err != nil {
+		return out
+	}
+	buckets := map[string][]int64{}
+	for _, txRow := range txs {
+		events, err := q.ListLifecycleEvents(ctx, txRow.ID)
+		if err != nil {
+			continue
+		}
+		for _, ev := range events {
+			if ev.LatencyMs.Valid {
+				buckets[ev.Stage] = append(buckets[ev.Stage], ev.LatencyMs.Int64)
+			}
+		}
+	}
+	for stage, vals := range buckets {
+		if len(vals) == 0 {
+			continue
+		}
+		var sum int64
+		for _, v := range vals {
+			sum += v
+		}
+		avg := sum / int64(len(vals))
+		out[stage] = &avg
+	}
+	return out
+}
+
+func avgEndToEndSeconds(ctx context.Context, q *dbgen.Queries) float64 {
+	txs, err := q.ListRecentTransactions(ctx, 100)
+	if err != nil {
+		return 0
+	}
+	var total float64
+	var count int
+	for _, txRow := range txs {
+		if txRow.SubmittedAt.Valid && txRow.FinalizedAt.Valid {
+			total += txRow.FinalizedAt.Time.Sub(txRow.SubmittedAt.Time).Seconds()
+			count++
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return total / float64(count)
 }
 
 func buildLeaderSchedule(current uint64, leaders map[uint64]string) LeaderSchedule {
@@ -442,6 +549,31 @@ func containsJito(leader string) bool {
 }
 
 func int64Ptr(v int64) *int64 { return &v }
+
+func parseEvidence(raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func failureReason(raw []byte) string {
+	ev := parseEvidence(raw)
+	if ev == nil {
+		return ""
+	}
+	if v, ok := ev["on_chain_error"].(string); ok && v != "" {
+		return v
+	}
+	if v, ok := ev["reason"].(string); ok && v != "" {
+		return v
+	}
+	return ""
+}
 
 func max(a, b int) int {
 	if a > b {

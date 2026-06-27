@@ -90,12 +90,17 @@ func (t *Tracker) process(ctx context.Context, ev StageEvent) error {
 	latency := pgtype.Int8{}
 	if ev.LatencyMS != nil {
 		latency = pgtype.Int8{Int64: *ev.LatencyMS, Valid: true}
+	} else if prior := t.priorTimestamp(ctx, string(ev.TransactionID), ev.Stage); !prior.IsZero() {
+		if delta := DeltaMS(prior, ev.Timestamp); delta != nil {
+			latency = pgtype.Int8{Int64: *delta, Valid: true}
+			ev.LatencyMS = delta
+		}
 	}
 	_, err := t.q.InsertLifecycleEvent(ctx, dbgen.InsertLifecycleEventParams{
 		ID: uuid.NewString(), TransactionID: string(ev.TransactionID),
 		Signature: pgtype.Text{String: string(ev.Signature), Valid: ev.Signature != ""},
 		BundleID:  pgtype.Text{String: string(ev.BundleID), Valid: ev.BundleID != ""},
-		Stage: string(ev.Stage), Slot: pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0},
+		Stage:     string(ev.Stage), Slot: pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0},
 		LatencyMs: latency, Metadata: meta,
 	})
 	if err != nil {
@@ -129,6 +134,9 @@ func (t *Tracker) process(ctx context.Context, ev StageEvent) error {
 		params.FinalizedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0}
 	case aegis.StageFailed:
 		params.FailedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
+		if ev.Slot > 0 {
+			params.SubmittedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: true}
+		}
 	}
 	_, err = t.q.UpdateTransactionStatus(ctx, params)
 	return err
@@ -140,4 +148,36 @@ func DeltaMS(from, to time.Time) *int64 {
 	}
 	ms := to.Sub(from).Milliseconds()
 	return &ms
+}
+
+func (t *Tracker) priorTimestamp(ctx context.Context, txID string, stage aegis.LifecycleStage) time.Time {
+	row, err := t.q.GetTransaction(ctx, txID)
+	if err != nil {
+		return time.Time{}
+	}
+	switch stage {
+	case aegis.StageSubmitted:
+		return row.CreatedAt.Time
+	case aegis.StageProcessed:
+		if row.SubmittedAt.Valid {
+			return row.SubmittedAt.Time
+		}
+	case aegis.StageConfirmed:
+		if row.ProcessedAt.Valid {
+			return row.ProcessedAt.Time
+		}
+		if row.SubmittedAt.Valid {
+			return row.SubmittedAt.Time
+		}
+	case aegis.StageFinalized:
+		if row.ConfirmedAt.Valid {
+			return row.ConfirmedAt.Time
+		}
+	case aegis.StageFailed:
+		if row.SubmittedAt.Valid {
+			return row.SubmittedAt.Time
+		}
+		return row.CreatedAt.Time
+	}
+	return time.Time{}
 }

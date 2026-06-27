@@ -4,8 +4,8 @@ package developer_test
 
 import (
 	"encoding/json"
-	"net/http"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/mira4sol/aegis/test/helpers"

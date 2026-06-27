@@ -8,12 +8,12 @@ import (
 )
 
 type Decision struct {
-	SubmitNow    bool
-	DelaySlots   uint64
-	TargetSlot   uint64
-	Leader       string
-	PolicyMode   aegis.PolicyMode
-	Reason       string
+	SubmitNow  bool
+	DelaySlots uint64
+	TargetSlot uint64
+	Leader     string
+	PolicyMode aegis.PolicyMode
+	Reason     string
 }
 
 type Scheduler struct {

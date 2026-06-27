@@ -117,6 +117,99 @@ func (s *SlotState) CurrentSlot() uint64 {
 	return s.currentSlot
 }
 
+// LeaderAt returns the validator identity scheduled for the given slot.
+func (s *SlotState) LeaderAt(slot uint64) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.leaders[slot]
+}
+
+// CongestionScore returns a 0-1 congestion estimate from TPS, skipped slots, and stream drift.
+func (s *SlotState) CongestionScore() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	tpsScore := s.tps / 5000.0
+	if tpsScore > 1 {
+		tpsScore = 1
+	}
+	skipped := 0
+	for _, entry := range s.recentSlots {
+		if entry.Skipped {
+			skipped++
+		}
+	}
+	skipScore := float64(skipped) / 64.0
+	driftScore := 0.0
+	if !s.lastUpdate.IsZero() {
+		driftMS := time.Since(s.lastUpdate).Milliseconds()
+		if driftMS > 800 {
+			driftScore = 0.3
+		} else if driftMS > 400 {
+			driftScore = 0.15
+		}
+	}
+	score := tpsScore*0.5 + skipScore*0.35 + driftScore
+	if score > 1 {
+		return 1
+	}
+	if score < 0.05 {
+		return 0.05
+	}
+	return score
+}
+
+// CongestionPct returns congestion as an integer percentage 10-100.
+func (s *SlotState) CongestionPct() int {
+	pct := int(s.CongestionScore() * 100)
+	if pct < 10 {
+		return 10
+	}
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}
+
+// SkippedSlotsInWindow counts skipped slots in the recent window.
+func (s *SlotState) SkippedSlotsInWindow() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	n := 0
+	for _, entry := range s.recentSlots {
+		if entry.Skipped {
+			n++
+		}
+	}
+	return n
+}
+
+// SlotJitterMS estimates slot timing jitter from recent stream freshness.
+func (s *SlotState) SlotJitterMS() float64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.lastUpdate.IsZero() {
+		return 0
+	}
+	drift := time.Since(s.lastUpdate).Milliseconds()
+	if drift > 400 {
+		return float64(drift) / 10.0
+	}
+	return 2.4
+}
+
+// ValidatorStabilityPct estimates leader stability from skipped slots in the window.
+func (s *SlotState) ValidatorStabilityPct() int {
+	skipped := s.SkippedSlotsInWindow()
+	stability := 100 - skipped*3
+	if stability < 50 {
+		return 50
+	}
+	if stability > 99 {
+		return 99
+	}
+	return stability
+}
+
 func (s *SlotState) Snapshot() (uint64, float64, []SlotEntry, map[uint64]string, time.Time, int64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

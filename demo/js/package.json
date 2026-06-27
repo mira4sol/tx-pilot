@@ -1,0 +1,15 @@
+{
+  "name": "aegis-js-demo",
+  "version": "1.0.0",
+  "description": "Submit a signed Solana transaction to the Aegis API",
+  "main": "submit-transaction.js",
+  "scripts": {
+    "submit": "node submit-transaction.js",
+    "submit:bundle": "node submit-bundle.js"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4"
+  }
+}

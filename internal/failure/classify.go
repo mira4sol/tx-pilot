@@ -52,11 +52,11 @@ type Evidence struct {
 }
 
 type Classification struct {
-	Kind               aegis.FailureKind
-	Title              string
-	Severity           string
-	RecommendedAction  string
-	Evidence           Evidence
+	Kind              aegis.FailureKind
+	Title             string
+	Severity          string
+	RecommendedAction string
+	Evidence          Evidence
 }
 
 func Classify(err error, evidence Evidence) Classification {

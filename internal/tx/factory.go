@@ -64,6 +64,32 @@ func (f *Factory) BuildSelfTransfer(_ context.Context, lamports uint64, memo str
 	return f.BuildTransfer(context.Background(), f.signer.publicKey, lamports, memo, blockhash)
 }
 
+// BuildSelfTransferWithTip builds a single transaction that performs the ops
+// self-transfer (plus optional memo) AND pays the Jito tip in the same
+// transaction. This is used with Jito's sendTransaction endpoint, where the tip
+// must be embedded in the transaction itself rather than in a separate bundle
+// entry.
+func (f *Factory) BuildSelfTransferWithTip(_ context.Context, lamports uint64, memo string, tipAccount solana.PublicKey, tipLamports uint64, blockhash solana.Hash) (*solana.Transaction, error) {
+	instructions := []solana.Instruction{
+		system.NewTransferInstruction(lamports, f.signer.publicKey, f.signer.publicKey).Build(),
+	}
+	if memo != "" {
+		instructions = append(instructions, buildMemoInstruction(memo))
+	}
+	instructions = append(instructions, system.NewTransferInstruction(tipLamports, f.signer.publicKey, tipAccount).Build())
+	tx, err := solana.NewTransaction(instructions, blockhash, solana.TransactionPayer(f.signer.publicKey))
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		if key.Equals(f.signer.publicKey) {
+			return &f.signer.privateKey
+		}
+		return nil
+	})
+	return tx, err
+}
+
 func (f *Factory) BuildTipTransfer(tipAccount solana.PublicKey, lamports uint64, blockhash solana.Hash) (*solana.Transaction, error) {
 	instructions := []solana.Instruction{
 		system.NewTransferInstruction(lamports, f.signer.publicKey, tipAccount).Build(),

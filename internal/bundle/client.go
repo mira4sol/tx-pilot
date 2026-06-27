@@ -52,35 +52,82 @@ func (c *JitoClient) endpointFor(method string) string {
 	}
 }
 
+// maxRateLimitRetries bounds how many times a rate-limited request is retried
+// with backoff before surfacing the error. The public Jito endpoint enforces a
+// low global request rate, so transient 429/"rate limited" responses are common
+// under congestion and are safe to retry for idempotent submissions.
+const maxRateLimitRetries = 4
+
+// isRateLimited reports whether a Jito response indicates the request was
+// throttled, either via HTTP status or the JSON-RPC error message.
+func isRateLimited(status int, msg string) bool {
+	if status == http.StatusTooManyRequests {
+		return true
+	}
+	m := strings.ToLower(msg)
+	return strings.Contains(m, "rate limit") || strings.Contains(m, "rate-limited") ||
+		strings.Contains(m, "congested")
+}
+
 func (c *JitoClient) call(ctx context.Context, method string, params []any, out any) (http.Header, error) {
 	body, _ := json.Marshal(jitoRPCRequest{JSONRPC: "2.0", ID: 1, Method: method, Params: params})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpointFor(method), bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var envelope jitoRPCResponse
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return nil, err
-	}
-	if envelope.Error != nil {
-		return resp.Header, fmt.Errorf("jito %s: %s", method, envelope.Error.Message)
-	}
-	if out != nil {
-		if err := json.Unmarshal(envelope.Result, out); err != nil {
-			return resp.Header, err
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRateLimitRetries; attempt++ {
+		if attempt > 0 {
+			// Exponential backoff capped at ~4s: 500ms, 1s, 2s, 4s.
+			backoff := time.Duration(250*(1<<attempt)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
 		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpointFor(method), bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		raw, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			lastErr = fmt.Errorf("jito %s: rate limited (HTTP 429)", method)
+			continue
+		}
+
+		var envelope jitoRPCResponse
+		if err := json.Unmarshal(raw, &envelope); err != nil {
+			return resp.Header, fmt.Errorf("jito %s: decode response: %w", method, err)
+		}
+		if envelope.Error != nil {
+			if isRateLimited(resp.StatusCode, envelope.Error.Message) {
+				lastErr = fmt.Errorf("jito %s: %s", method, envelope.Error.Message)
+				continue
+			}
+			return resp.Header, fmt.Errorf("jito %s: %s", method, envelope.Error.Message)
+		}
+		if out != nil {
+			if err := json.Unmarshal(envelope.Result, out); err != nil {
+				return resp.Header, err
+			}
+		}
+		return resp.Header, nil
 	}
-	return resp.Header, nil
+	if lastErr == nil {
+		lastErr = fmt.Errorf("jito %s: exhausted retries", method)
+	}
+	return nil, lastErr
 }
 
 func (c *JitoClient) LoadTipAccounts(ctx context.Context) error {

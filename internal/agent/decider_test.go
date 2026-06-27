@@ -21,3 +21,16 @@ func TestFallbackDecisionExpiredBlockhash(t *testing.T) {
 		t.Fatalf("unexpected action: %v", decision.Action)
 	}
 }
+
+func TestFallbackTipDecision(t *testing.T) {
+	fake := &agent.FakeAgent{}
+	decision, err := fake.DecideTip(context.Background(), agent.TipFacts{
+		CongestionPct: 80, BaseTip: 1000, FloorLamports: 1000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.Action["kind"] != "set_tip" {
+		t.Fatalf("unexpected action: %v", decision.Action)
+	}
+}

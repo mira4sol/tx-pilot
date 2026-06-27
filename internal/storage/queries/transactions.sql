@@ -16,27 +16,27 @@ SELECT * FROM transactions WHERE signature = $1;
 
 -- name: UpdateTransactionStatus :one
 UPDATE transactions SET
-    status = $2,
-    stage = $3,
-    signature = COALESCE($4, signature),
-    bundle_id = COALESCE($5, bundle_id),
-    tip_lamports = COALESCE($6, tip_lamports),
-    target_slot = COALESCE($7, target_slot),
-    submitted_slot = COALESCE($8, submitted_slot),
-    processed_slot = COALESCE($9, processed_slot),
-    confirmed_slot = COALESCE($10, confirmed_slot),
-    finalized_slot = COALESCE($11, finalized_slot),
-    leader = COALESCE($12, leader),
-    retry_attempt = COALESCE($13, retry_attempt),
-    failure_kind = COALESCE($14, failure_kind),
-    agent_decision_id = COALESCE($15, agent_decision_id),
-    submitted_at = COALESCE($16, submitted_at),
-    processed_at = COALESCE($17, processed_at),
-    confirmed_at = COALESCE($18, confirmed_at),
-    finalized_at = COALESCE($19, finalized_at),
-    failed_at = COALESCE($20, failed_at),
+    status = @status,
+    stage = @stage,
+    signature = COALESCE(@signature, signature),
+    bundle_id = COALESCE(@bundle_id, bundle_id),
+    tip_lamports = CASE WHEN @tip_lamports > 0 THEN @tip_lamports ELSE tip_lamports END,
+    target_slot = COALESCE(@target_slot, target_slot),
+    submitted_slot = COALESCE(@submitted_slot, submitted_slot),
+    processed_slot = COALESCE(@processed_slot, processed_slot),
+    confirmed_slot = COALESCE(@confirmed_slot, confirmed_slot),
+    finalized_slot = COALESCE(@finalized_slot, finalized_slot),
+    leader = COALESCE(@leader, leader),
+    retry_attempt = COALESCE(@retry_attempt, retry_attempt),
+    failure_kind = COALESCE(@failure_kind, failure_kind),
+    agent_decision_id = COALESCE(@agent_decision_id, agent_decision_id),
+    submitted_at = COALESCE(@submitted_at, submitted_at),
+    processed_at = COALESCE(@processed_at, processed_at),
+    confirmed_at = COALESCE(@confirmed_at, confirmed_at),
+    finalized_at = COALESCE(@finalized_at, finalized_at),
+    failed_at = COALESCE(@failed_at, failed_at),
     updated_at = NOW()
-WHERE id = $1
+WHERE id = @id
 RETURNING *;
 
 -- name: ListRecentTransactions :many

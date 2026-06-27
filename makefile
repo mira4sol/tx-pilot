@@ -25,6 +25,9 @@ test-integration-dashboard:
 test-integration-ws:
 	go test -tags=integration -v ./test/ws/...
 
+test-integration-lifecycle:
+	AEGIS_RUN_BOUNTY_LOG=1 go test -tags=integration -v -timeout=45m ./test/lifecycle/...
+
 test-race:
 	go test -race ./...
 
@@ -55,7 +58,7 @@ verify-lifecycle:
 clean:
 	rm -f aegis
 
-.PHONY: build dev run test test-keypair test-integration test-integration-developer test-integration-dashboard test-integration-ws test-race sqlc migrate-up migrate-down docker-up docker-down demo-normal demo-expired verify-lifecycle clean air
+.PHONY: build dev run test test-keypair test-integration test-integration-developer test-integration-dashboard test-integration-ws test-integration-lifecycle test-race sqlc migrate-up migrate-down docker-up docker-down demo-normal demo-expired verify-lifecycle clean air
 
 air:
 	air --build.cmd "go build -o tmp/main cmd/aegis/main.go" --build.entrypoint "./tmp/main" --build.exclude_dir "tmp,build"

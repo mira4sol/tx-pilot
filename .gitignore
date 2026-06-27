@@ -18,3 +18,4 @@ aegis
 /build/
 /bin/
 /vendor/
+node_modules/

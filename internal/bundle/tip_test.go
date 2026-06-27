@@ -57,3 +57,42 @@ func TestResolveTipCallerAboveFloor(t *testing.T) {
 		t.Fatalf("expected caller tip preserved, got %d", res.FinalTipLamports)
 	}
 }
+
+func TestNetworkMultiplierCongestion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]bundle.TipFloor{{
+			LandedTips50thPercentile: 0.000002,
+		}})
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{PolicyMode: aegis.ModeSafe, JitoTipFloorURL: server.URL, JitoMinTipLamports: 1000}
+	resolver := bundle.NewTipResolver(cfg)
+
+	tests := []struct {
+		name       string
+		congestion float64
+		leader     string
+		wantMin    uint64
+		wantMax    uint64
+	}{
+		{"low congestion", 0.1, "jito", 2000, 2200},
+		{"medium congestion", 0.5, "good", 2200, 2400},
+		{"high congestion", 0.9, "unknown", 2500, 2700},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := resolver.ResolveTip(context.Background(), bundle.ResolveInput{
+				PolicyMode: aegis.ModeSafe, Congestion: tc.congestion, LeaderQuality: tc.leader,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := uint64(res.FinalTipLamports)
+			if got < tc.wantMin || got > tc.wantMax {
+				t.Fatalf("tip %d outside [%d,%d] for congestion=%.1f leader=%s", got, tc.wantMin, tc.wantMax, tc.congestion, tc.leader)
+			}
+		})
+	}
+}

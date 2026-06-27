@@ -17,7 +17,7 @@ func TestHealthz(t *testing.T) {
 	logger := zap.NewNop()
 	cfg := &config.Config{Cluster: "mainnet-beta"}
 	slotState := stream.NewSlotState()
-	dash := dashboard.NewService(cfg, slotState, nil, logger)
+	dash := dashboard.NewService(cfg, slotState, nil, nil, logger)
 	router := api.NewRouter(api.Dependencies{
 		Config: cfg, Dashboard: dash, Hub: notify.NewHub(), Logger: logger,
 	})

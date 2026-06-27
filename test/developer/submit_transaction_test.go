@@ -17,8 +17,8 @@ func TestSubmitTransaction(t *testing.T) {
 
 	resp := helpers.SubmitSignedTransaction(t, encoded, "integration-submit-test")
 
-	if resp.SubmissionKind != aegis.SubmissionTransaction {
-		t.Fatalf("expected submission_kind transaction, got %s", resp.SubmissionKind)
+	if resp.SubmissionKind != aegis.SubmissionBundle {
+		t.Fatalf("expected submission_kind bundle (auto-wrapped with tip), got %s", resp.SubmissionKind)
 	}
 	if resp.Result == "" {
 		t.Fatal("expected non-empty result signature")

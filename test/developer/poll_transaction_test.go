@@ -12,7 +12,7 @@ import (
 func TestPollTransactionUntilTerminal(t *testing.T) {
 	submit := helpers.SubmitDeveloperTx(t, "integration-poll")
 
-	final := helpers.PollTransaction(t, string(submit.TransactionID), 45*time.Second)
+	final := helpers.PollTransaction(t, string(submit.TransactionID), 120*time.Second)
 	status, _ := final["status"].(string)
 	t.Logf("terminal status=%s tx_id=%s", status, submit.TransactionID)
 

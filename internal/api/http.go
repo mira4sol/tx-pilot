@@ -3,11 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/gorilla/websocket"
 	"github.com/mira4sol/aegis/internal/app"
 	"github.com/mira4sol/aegis/internal/config"
 	"github.com/mira4sol/aegis/internal/dashboard"
@@ -25,14 +23,9 @@ type Dependencies struct {
 	RiverUI      http.Handler
 }
 
-var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-
 func NewRouter(deps Dependencies) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	applyDefaultMiddleware(r)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -49,6 +42,8 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Route("/v1", func(r chi.Router) {
 		r.Post("/transactions", deps.submitTransaction)
 		r.Post("/bundles", deps.submitBundle)
+		r.Post("/ops/submit", deps.submitOps)
+		r.Get("/lifecycle-log", deps.lifecycleLog)
 		r.Get("/transactions/{id}", deps.getTransaction)
 		r.Get("/transactions/{id}/timeline", deps.getTimeline)
 		r.Get("/bundles/{id}", deps.getBundle)
@@ -95,6 +90,35 @@ func (deps Dependencies) submitBundle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, resp)
+}
+
+func (deps Dependencies) submitOps(w http.ResponseWriter, r *http.Request) {
+	var req aegis.SubmitOpsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	resp, err := deps.ControlPlane.SubmitOps(r.Context(), req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusAccepted, resp)
+}
+
+func (deps Dependencies) lifecycleLog(w http.ResponseWriter, r *http.Request) {
+	limit := int32(50)
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+			limit = int32(n)
+		}
+	}
+	entries, err := deps.ControlPlane.ExportLifecycleLog(r.Context(), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "count": len(entries)})
 }
 
 func (deps Dependencies) getTransaction(w http.ResponseWriter, r *http.Request) {
@@ -199,29 +223,16 @@ func (deps Dependencies) dashboardRecovery(w http.ResponseWriter, r *http.Reques
 }
 
 func (deps Dependencies) dashboardCharts(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"series": []any{}})
-}
-
-func (deps Dependencies) websocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	series := r.URL.Query().Get("series")
+	if series == "" {
+		series = "network_health"
+	}
+	points, err := deps.Dashboard.Charts(r.Context(), series)
 	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	client := deps.Hub.Register(conn)
-	defer deps.Hub.Unregister(client)
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			return
-		}
-		var sub struct {
-			Type     string   `json:"type"`
-			Channels []string `json:"channels"`
-		}
-		if err := json.Unmarshal(msg, &sub); err == nil && sub.Type == "subscribe" {
-			client.Subscribe(sub.Channels)
-		}
-	}
+	writeJSON(w, http.StatusOK, map[string]any{"series": series, "points": points})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

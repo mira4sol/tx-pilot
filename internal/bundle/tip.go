@@ -93,11 +93,56 @@ func pickPercentile(floor *TipFloor, p float64) float64 {
 	}
 }
 
+// networkMultiplier scales tips continuously with congestion (0.0-1.0).
+func networkMultiplier(congestion float64) float64 {
+	if congestion < 0 {
+		congestion = 0
+	}
+	if congestion > 1 {
+		congestion = 1
+	}
+	return 1.0 + congestion*0.25
+}
+
+// leaderMultiplier applies a small premium when leader quality is uncertain.
+func leaderMultiplier(quality string) float64 {
+	switch quality {
+	case "jito":
+		return 1.0
+	case "good":
+		return 1.02
+	case "unknown", "":
+		return 1.05
+	default:
+		return 1.03
+	}
+}
+
+func applyNetworkAdjustments(sol float64, congestion float64, leaderQuality string) float64 {
+	return sol * networkMultiplier(congestion) * leaderMultiplier(leaderQuality)
+}
+
 type ResolveInput struct {
-	RequestedTip *uint64
-	TipMode      string
-	PolicyMode   aegis.PolicyMode
-	Congestion   float64
+	RequestedTip  *uint64
+	TipMode       string
+	PolicyMode    aegis.PolicyMode
+	Congestion    float64
+	LeaderQuality string
+}
+
+type RecommendInput struct {
+	ResolveInput
+	LeaderQuality string
+	LandingRate   float64
+}
+
+type RecommendResult struct {
+	Resolution  aegis.TipResolution
+	Percentile  float64
+	Congestion  float64
+	FloorSOL    float64
+	SelectedSOL float64
+	PolicyMode  aegis.PolicyMode
 }
 
 func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (aegis.TipResolution, error) {
@@ -127,16 +172,12 @@ func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (aegis.Ti
 	case in.TipMode != "" && in.TipMode != string(aegis.TipModeAuto):
 		pm := aegis.PolicyMode(in.TipMode)
 		autoSOL := pickPercentile(floor, percentileForMode(pm))
-		if in.Congestion > 0.7 {
-			autoSOL *= 1.12
-		}
+		autoSOL = applyNetworkAdjustments(autoSOL, in.Congestion, in.LeaderQuality)
 		requested = solToLamports(autoSOL)
 		source = aegis.TipSourceAuto
 	default:
 		autoSOL := pickPercentile(floor, percentileForMode(mode))
-		if in.Congestion > 0.7 {
-			autoSOL *= 1.12
-		}
+		autoSOL = applyNetworkAdjustments(autoSOL, in.Congestion, in.LeaderQuality)
 		requested = solToLamports(autoSOL)
 		source = aegis.TipSourceAuto
 	}
@@ -154,6 +195,31 @@ func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (aegis.Ti
 		FloorLamports:        dynamicFloor,
 		FinalTipLamports:     final,
 		TipSource:            source,
+	}, nil
+}
+
+// Recommend resolves a dynamic tip from live Jito floor data and current network conditions.
+func (r *TipResolver) Recommend(ctx context.Context, in RecommendInput) (RecommendResult, error) {
+	res, err := r.ResolveTip(ctx, in.ResolveInput)
+	if err != nil {
+		return RecommendResult{}, err
+	}
+	floor, _ := r.FetchTipFloor(ctx)
+	mode := in.PolicyMode
+	if mode == "" {
+		mode = r.cfg.PolicyMode
+	}
+	pct := percentileForMode(mode)
+	selectedSOL := pickPercentile(floor, pct)
+	selectedSOL = applyNetworkAdjustments(selectedSOL, in.Congestion, in.LeaderQuality)
+	floorSOL := pickPercentile(floor, 0.25)
+	return RecommendResult{
+		Resolution:  res,
+		Percentile:  pct,
+		Congestion:  in.Congestion,
+		FloorSOL:    floorSOL,
+		SelectedSOL: selectedSOL,
+		PolicyMode:  mode,
 	}, nil
 }
 

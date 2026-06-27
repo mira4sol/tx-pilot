@@ -10,13 +10,13 @@ import (
 
 func TestValidatePolicyMode(t *testing.T) {
 	cfg := &config.Config{
-		SolanaRPCURL: "http://localhost",
-		YellowstoneGRPCURL: "localhost:443",
+		SolanaRPCURL:         "http://localhost",
+		YellowstoneGRPCURL:   "localhost:443",
 		YellowstoneGRPCToken: "token",
-		StorageDSN: "postgres://",
-		OpenAIAPIKey: "key",
-		KeypairPath: "/tmp/key",
-		PolicyMode: aegis.ModeSafe,
+		StorageDSN:           "postgres://",
+		OpenAIAPIKey:         "key",
+		KeypairPath:          "/tmp/key",
+		PolicyMode:           aegis.ModeSafe,
 	}
 	if err := config.Validate(cfg); err != nil {
 		t.Fatal(err)

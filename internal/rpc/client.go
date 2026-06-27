@@ -91,6 +91,16 @@ func (c *Client) GetLatestBlockhash(ctx context.Context, commitment string) (*Ge
 	return &out, nil
 }
 
+func (c *Client) GetBalance(ctx context.Context, pubkey string) (uint64, error) {
+	var out struct {
+		Value uint64 `json:"value"`
+	}
+	if err := c.call(ctx, "getBalance", []any{pubkey}, &out); err != nil {
+		return 0, err
+	}
+	return out.Value, nil
+}
+
 func (c *Client) GetSlot(ctx context.Context) (uint64, error) {
 	var slot uint64
 	if err := c.call(ctx, "getSlot", []any{}, &slot); err != nil {
