@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/bundle"
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/internal/stream"
+	"github.com/mira4sol/tx-pilot/internal/bundle"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/internal/stream"
 	"go.uber.org/zap"
 )
 

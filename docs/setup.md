@@ -1,8 +1,8 @@
-# Aegis — Setup & Run Guide
+# TX Pilot — Setup & Run Guide
 
-This guide walks through installing dependencies, configuring credentials, starting infrastructure, and running the Aegis API server and dashboard.
+This guide walks through installing dependencies, configuring credentials, starting infrastructure, and running the TX Pilot API server and dashboard.
 
-For API usage after the server is up, see [Operations Runbook](operations.md). For architecture and data contracts, see [Architecture](architecture.md) and [Dashboard contract](dashboard-data-contract.md).
+For API usage after the server is up, see [Operations Runbook](operations.md). For architecture and data contracts, see [Architecture](architecture.md) and [Dashboard data contract](dashboard-data.md).
 
 ---
 
@@ -10,12 +10,12 @@ For API usage after the server is up, see [Operations Runbook](operations.md). F
 
 | Component | Role | Default URL |
 |-----------|------|-------------|
-| **Aegis API** | Transaction control plane, lifecycle tracking, dashboard REST/WS | `http://localhost:8080` |
+| **TX Pilot API** | Transaction control plane, lifecycle tracking, dashboard REST/WS | `http://localhost:8080` |
 | **Dashboard (web)** | Real-time ops UI (React + Vite) | Dev: `http://localhost:5173` · Prod: same origin as API (`/`) |
 | **Postgres** | Persistence, River job queue | `localhost:5432` |
 | **River UI** | Background job inspector | `http://localhost:8080/riverui` |
 
-Aegis connects to **live mainnet** services by default (Solana RPC, Yellowstone gRPC, Jito block engine, OpenAI). You need valid credentials and a funded ops keypair before submitting real transactions.
+TX Pilot connects to **live mainnet** services by default (Solana RPC, Yellowstone gRPC, Jito block engine, OpenAI). You need valid credentials and a funded ops keypair before submitting real transactions.
 
 ---
 
@@ -51,8 +51,8 @@ Jito endpoints are preconfigured for mainnet in `.env.example`; override if need
 ## 1. Clone and install
 
 ```bash
-git clone <repo-url> aegis
-cd aegis
+git clone <repo-url> tx-pilot
+cd tx-pilot
 ```
 
 ### Go dependencies
@@ -99,17 +99,17 @@ Edit `.env` at the **project root**. The server loads it automatically on startu
 | `YELLOWSTONE_GRPC_TOKEN` | Auth token for Yellowstone |
 | `DATABASE_URL` | Postgres connection string |
 | `OPENAI_API_KEY` | OpenAI API key |
-| `AEGIS_KEYPAIR_PATH` | Path to server ops keypair JSON (see below) |
+| `TX_PILOT_KEYPAIR_PATH` | Path to server ops keypair JSON (see below) |
 
 #### Common optional variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AEGIS_ENV` | `development` | Log/environment label |
-| `AEGIS_CLUSTER` | `mainnet-beta` | Cluster name exposed to dashboard |
-| `AEGIS_HTTP_ADDR` | `:8080` | API listen address |
-| `AEGIS_POLICY_MODE` | `SAFE` | `SAFE`, `FAST`, `CHEAP`, or `AGGRESSIVE` |
-| `AEGIS_WEB_DIR` | `web/dist` | Static dashboard files; set empty to disable |
+| `TX_PILOT_ENV` | `development` | Log/environment label |
+| `TX_PILOT_CLUSTER` | `mainnet-beta` | Cluster name exposed to dashboard |
+| `TX_PILOT_HTTP_ADDR` | `:8080` | API listen address |
+| `TX_PILOT_POLICY_MODE` | `SAFE` | `SAFE`, `FAST`, `CHEAP`, or `AGGRESSIVE` |
+| `TX_PILOT_WEB_DIR` | `web/dist` | Static dashboard files; set empty to disable |
 | `JITO_MIN_TIP_LAMPORTS` | `1000` | Advisory minimum tip floor |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Agent model |
 
@@ -117,16 +117,16 @@ See `.env.example` for SolInfra REST, webhooks, and Jito URL overrides.
 
 #### Database URL and Docker
 
-`deployments/docker-compose.yaml` creates database **`aegis`**:
+`deployments/docker-compose.yaml` creates database **`txpilot`**:
 
 ```
-postgresql://postgres:admin@localhost:5432/aegis?sslmode=disable&search_path=public
+postgresql://postgres:admin@localhost:5432/txpilot?sslmode=disable&search_path=public
 ```
 
-The sample `.env.example` uses database name `aegis_v2`. Either:
+The sample `.env.example` uses database name `txpilot`. Either:
 
-- Point `DATABASE_URL` at the Docker database **`aegis`** (recommended for local dev), or
-- Create `aegis_v2` manually and keep the example URL.
+- Point `DATABASE_URL` at the Docker database **`txpilot`** (recommended for local dev), or
+- Create `txpilot` manually and keep the example URL.
 
 Mismatch here is the most common local startup failure.
 
@@ -154,21 +154,27 @@ make build-web   # VITE_API_URL= VITE_API_BASE= pnpm build
 
 ## 3. Ops keypair
 
-The server signs dynamic tip transactions and recovery ops using a dedicated keypair.
+`TX_PILOT_KEYPAIR_PATH` is the server ops keypair. TX Pilot uses it to:
+
+- Sign **separate tip transactions** appended to client bundles (`POST /v1/bundles`)
+- Sign **ops transactions** with embedded tips (`POST /v1/ops/submit`)
+- Sign **autonomous recovery resubmits** after AI-driven failure handling
+
+Client transactions submitted via `POST /v1/transactions` are forwarded unchanged — the server never re-signs a client payload.
 
 ```bash
 make test-keypair
 ```
 
-This creates `aegis-test-keypair.json` in the project root (gitignored). Set in `.env`:
+This creates `tx-pilot-test-keypair.json` in the project root (gitignored). Set in `.env`:
 
 ```env
-AEGIS_KEYPAIR_PATH=./aegis-test-keypair.json
+TX_PILOT_KEYPAIR_PATH=./tx-pilot-test-keypair.json
 ```
 
 Fund the printed public key with **~0.05 SOL on mainnet-beta** before running integration tests or live submissions.
 
-Integration tests use the same file for **client-side** signing of test transfers; the server still signs tip txs appended to bundles.
+Integration tests use the same file for **client-side** signing of test transfers; the server signs tip txs for bundle submissions and all ops paths.
 
 ---
 
@@ -183,7 +189,7 @@ make docker-up
 Verify the container is healthy:
 
 ```bash
-docker ps --filter name=aegis-postgres
+docker ps --filter name=tx-pilot-postgres
 ```
 
 ### Run migrations
@@ -217,11 +223,11 @@ make sqlc
 make dev
 ```
 
-Equivalent to `go run cmd/aegis/main.go`. Expect logs:
+Equivalent to `go run cmd/tx-pilot/main.go`. Expect logs:
 
 - `db connected`
 - `serving web dashboard` (if `web/dist/index.html` exists)
-- `starting aegis api` on `:8080`
+- `starting tx-pilot api` on `:8080`
 
 Health check:
 
@@ -255,13 +261,13 @@ make build
 # or: make build-all
 ```
 
-This runs `build-web` (same-origin API config) then `build-go`, producing `./aegis`.
+This runs `build-web` (same-origin API config) then `build-go`, producing `./tx-pilot`.
 
 Run:
 
 ```bash
 make run
-# or: ./aegis
+# or: ./tx-pilot
 ```
 
 Open **http://localhost:8080/** for the dashboard. API routes remain under `/v1/*`.
@@ -278,7 +284,7 @@ To build only the web app:
 make build-web
 ```
 
-Static files are read from `AEGIS_WEB_DIR` (default `web/dist`). If `index.html` is missing, the API still runs; the UI is simply not mounted.
+Static files are read from `TX_PILOT_WEB_DIR` (default `web/dist`). If `index.html` is missing, the API still runs; the UI is simply not mounted.
 
 ---
 
@@ -293,7 +299,7 @@ curl -s http://localhost:8080/v1/blockhash
 
 ### Dashboard (production mode)
 
-After `make build && ./aegis`:
+After `make build && ./tx-pilot`:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/
@@ -333,22 +339,22 @@ See [test/README.md](../test/README.md) for wallet funding, transfer targets, an
 
 | Command | Description |
 |---------|-------------|
-| `make build` | Build web (`web/dist`) + Go binary (`./aegis`) |
+| `make build` | Build web (`web/dist`) + Go binary (`./tx-pilot`) |
 | `make build-all` | Alias for `make build` |
 | `make build-go` | Go binary only |
 | `make build-web` | Frontend production build (same-origin API) |
 | `make dev` | Run API with `go run` |
 | `make dev-web` | Vite dev server on `:5173` |
-| `make run` | Run `./aegis` binary |
+| `make run` | Run `./tx-pilot` binary |
 | `make docker-up` / `make docker-down` | Postgres container |
 | `make migrate-up` / `make migrate-down` | Database migrations |
-| `make test-keypair` | Generate `aegis-test-keypair.json` |
+| `make test-keypair` | Generate `tx-pilot-test-keypair.json` |
 | `make test` | Go unit tests |
 | `make test-integration*` | Live HTTP/WS tests (server must be running) |
 | `make sqlc` | Regenerate type-safe queries |
 | `make demo-normal` / `make demo-expired` | Demo scripts |
 | `make verify-lifecycle` | Lifecycle log verification |
-| `make clean` | Remove `./aegis` binary |
+| `make clean` | Remove `./tx-pilot` binary |
 | `make air` | Go hot reload |
 
 ---
@@ -358,17 +364,17 @@ See [test/README.md](../test/README.md) for wallet funding, transfer targets, an
 Submit a signed ops transaction from the command line:
 
 ```bash
-go run cmd/aegis-cli/main.go -memo demo
-go run cmd/aegis-cli/main.go -bundle -memo bundle-demo
+go run cmd/tx-pilot-cli/main.go -memo demo
+go run cmd/tx-pilot-cli/main.go -bundle -memo bundle-demo
 ```
 
 Lifecycle evidence export (writes `lifecycle-log.json`):
 
 ```bash
-go run ./cmd/aegis-lifecycle-runner -count 10 -failures 2
+go run ./cmd/tx-pilot-lifecycle-runner -count 10 -failures 2
 ```
 
-Both require a running server and configured `AEGIS_KEYPAIR_PATH`.
+Both require a running server and configured `TX_PILOT_KEYPAIR_PATH`.
 
 ---
 
@@ -376,13 +382,13 @@ Both require a running server and configured `AEGIS_KEYPAIR_PATH`.
 
 ### Server exits on startup: missing required config
 
-Fill every variable listed in the error (RPC, Yellowstone, `DATABASE_URL`, `OPENAI_API_KEY`, `AEGIS_KEYPAIR_PATH`).
+Fill every variable listed in the error (RPC, Yellowstone, `DATABASE_URL`, `OPENAI_API_KEY`, `TX_PILOT_KEYPAIR_PATH`).
 
 ### Database connection refused
 
 - Run `make docker-up`
 - Confirm `DATABASE_URL` host/port/user/password match Docker
-- Confirm database **name** matches (`aegis` vs `aegis_v2`)
+- Confirm database **name** matches (`txpilot`)
 
 ### `serving web dashboard` not in logs
 
@@ -408,7 +414,7 @@ Reinstall with platform support in `web/pnpm-workspace.yaml` (`darwin` + `linux`
 
 ### Port already in use
 
-Change `AEGIS_HTTP_ADDR=:8081` in `.env`, or stop the process on `:8080` / `:5173`.
+Change `TX_PILOT_HTTP_ADDR=:8081` in `.env`, or stop the process on `:8080` / `:5173`.
 
 ---
 
@@ -419,7 +425,7 @@ Change `AEGIS_HTTP_ADDR=:8081` in `.env`, or stop the process on `:8080` / `:517
 | [README.md](../README.md) | Project overview and API summary |
 | [architecture.md](architecture.md) | System design |
 | [operations.md](operations.md) | Submit, poll, CLI, runbook |
-| [dashboard-data-contract.md](dashboard-data-contract.md) | REST + WebSocket shapes |
+| [dashboard-data.md](dashboard-data.md) | REST + WebSocket shapes |
 | [lifecycle-log.md](lifecycle-log.md) | Bounty lifecycle export |
 | [test/README.md](../test/README.md) | Integration test setup |
 
@@ -430,13 +436,13 @@ Change `AEGIS_HTTP_ADDR=:8081` in `.env`, or stop the process on `:8080` / `:517
 Minimal path from zero to running API + dashboard UI:
 
 ```bash
-cp .env.example .env          # edit credentials; fix DATABASE_URL → .../aegis
+cp .env.example .env          # edit credentials; fix DATABASE_URL → .../tx-pilot
 make test-keypair             # fund the printed pubkey on mainnet
 make docker-up
 export $(grep -v '^#' .env | xargs)
 make migrate-up
 make build                    # web + binary
-./aegis                       # http://localhost:8080/
+./tx-pilot                       # http://localhost:8080/
 ```
 
 For frontend hot reload during development, use `make dev` + `make dev-web` instead of `make build`.

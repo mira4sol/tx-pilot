@@ -15,21 +15,21 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 const (
-	TestKeypairFile     = "aegis-test-keypair.json"
+	TestKeypairFile     = "tx-pilot-test-keypair.json"
 	DevRecipient        = "5SEZmBS8s41cJ8g3gmLS1BexujHcNZHe5qznPJMdVUsh"
 	DevTransferLamports = uint64(1)
 )
 
 func BaseURL() string {
-	if v := os.Getenv("AEGIS_TEST_BASE_URL"); v != "" {
+	if v := os.Getenv("TX_PILOT_TEST_BASE_URL"); v != "" {
 		return v
 	}
-	if v := os.Getenv("AEGIS_PUBLIC_API_BASE_URL"); v != "" {
+	if v := os.Getenv("TX_PILOT_PUBLIC_API_BASE_URL"); v != "" {
 		return v
 	}
 	return "http://localhost:8080"
@@ -154,7 +154,7 @@ func BuildSignedTransfer(t *testing.T, signer *tx.Signer, recipient solana.Publi
 	if err != nil {
 		t.Fatalf("build transfer: %v", err)
 	}
-	encoded, err := tx.EncodeTransaction(signed, aegis.EncodingBase64)
+	encoded, err := tx.EncodeTransaction(signed, txpilot.EncodingBase64)
 	if err != nil {
 		t.Fatalf("encode tx: %v", err)
 	}
@@ -169,23 +169,23 @@ func BuildSignedTip(t *testing.T, signer *tx.Signer, tipAccount solana.PublicKey
 	if err != nil {
 		t.Fatalf("build tip: %v", err)
 	}
-	encoded, err := tx.EncodeTransaction(signed, aegis.EncodingBase64)
+	encoded, err := tx.EncodeTransaction(signed, txpilot.EncodingBase64)
 	if err != nil {
 		t.Fatalf("encode tip: %v", err)
 	}
 	return encoded
 }
 
-func SubmitSignedTransaction(t *testing.T, encoded string, memo string) aegis.SubmitResponse {
+func SubmitSignedTransaction(t *testing.T, encoded string, memo string) txpilot.SubmitResponse {
 	t.Helper()
-	payload := aegis.SubmitTransactionRequest{
+	payload := txpilot.SubmitTransactionRequest{
 		Transaction: encoded,
-		Encoding:    string(aegis.EncodingBase64),
+		Encoding:    string(txpilot.EncodingBase64),
 		Memo:        memo,
 	}
 	status, body := POSTJSON(t, "/v1/transactions", payload)
 	AssertStatus(t, status, http.StatusAccepted, body)
-	var resp aegis.SubmitResponse
+	var resp txpilot.SubmitResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		t.Fatalf("unmarshal submit response: %v", err)
 	}
@@ -198,16 +198,16 @@ func SubmitSignedTransaction(t *testing.T, encoded string, memo string) aegis.Su
 	return resp
 }
 
-func SubmitSignedBundle(t *testing.T, encoded []string, memo string) aegis.SubmitResponse {
+func SubmitSignedBundle(t *testing.T, encoded []string, memo string) txpilot.SubmitResponse {
 	t.Helper()
-	payload := aegis.SubmitBundleRequest{
+	payload := txpilot.SubmitBundleRequest{
 		Transactions: encoded,
-		Encoding:     string(aegis.EncodingBase64),
+		Encoding:     string(txpilot.EncodingBase64),
 		Memo:         memo,
 	}
 	status, body := POSTJSON(t, "/v1/bundles", payload)
 	AssertStatus(t, status, http.StatusAccepted, body)
-	var resp aegis.SubmitResponse
+	var resp txpilot.SubmitResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		t.Fatalf("unmarshal bundle response: %v", err)
 	}
@@ -221,7 +221,7 @@ func SubmitSignedBundle(t *testing.T, encoded []string, memo string) aegis.Submi
 // integration tests. A self-transfer is used so the transaction actually lands:
 // the signer account already exists and remains rent-exempt, whereas sending a
 // sub-rent-exempt amount to a fresh account is rejected with InsufficientFundsForRent.
-func SubmitDeveloperTx(t *testing.T, memo string) aegis.SubmitResponse {
+func SubmitDeveloperTx(t *testing.T, memo string) txpilot.SubmitResponse {
 	t.Helper()
 	signer := LoadTestSigner(t)
 	encoded := BuildSignedTransfer(t, signer, signer.PublicKey(), DevTransferLamports, memo)

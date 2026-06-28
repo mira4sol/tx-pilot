@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/storage"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/storage"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
@@ -28,11 +28,11 @@ type eventJob struct {
 }
 
 type StageEvent struct {
-	TransactionID aegis.TransactionID
-	Signature     aegis.Signature
-	BundleID      aegis.BundleID
-	Stage         aegis.LifecycleStage
-	Slot          aegis.Slot
+	TransactionID txpilot.TransactionID
+	Signature     txpilot.Signature
+	BundleID      txpilot.BundleID
+	Stage         txpilot.LifecycleStage
+	Slot          txpilot.Slot
 	LatencyMS     *int64
 	Metadata      map[string]any
 	Timestamp     time.Time
@@ -70,10 +70,10 @@ func (t *Tracker) shardKey(id string) int {
 	return int(h % uint32(t.shards))
 }
 
-func (t *Tracker) isSyncStage(stage aegis.LifecycleStage) bool {
+func (t *Tracker) isSyncStage(stage txpilot.LifecycleStage) bool {
 	switch stage {
-	case aegis.StageCreated, aegis.StageSubmitted, aegis.StageFailed,
-		aegis.StageProcessed, aegis.StageConfirmed, aegis.StageFinalized:
+	case txpilot.StageCreated, txpilot.StageSubmitted, txpilot.StageFailed,
+		txpilot.StageProcessed, txpilot.StageConfirmed, txpilot.StageFinalized:
 		return true
 	default:
 		return false
@@ -145,19 +145,19 @@ func (t *Tracker) process(ctx context.Context, ev StageEvent) error {
 		params.BundleID = pgtype.Text{String: string(ev.BundleID), Valid: true}
 	}
 	switch ev.Stage {
-	case aegis.StageSubmitted:
+	case txpilot.StageSubmitted:
 		params.SubmittedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
 		params.SubmittedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0}
-	case aegis.StageProcessed:
+	case txpilot.StageProcessed:
 		params.ProcessedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
 		params.ProcessedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0}
-	case aegis.StageConfirmed:
+	case txpilot.StageConfirmed:
 		params.ConfirmedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
 		params.ConfirmedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0}
-	case aegis.StageFinalized:
+	case txpilot.StageFinalized:
 		params.FinalizedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
 		params.FinalizedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: ev.Slot > 0}
-	case aegis.StageFailed:
+	case txpilot.StageFailed:
 		params.FailedAt = pgtype.Timestamptz{Time: ev.Timestamp, Valid: true}
 		if ev.Slot > 0 {
 			params.SubmittedSlot = pgtype.Int8{Int64: int64(ev.Slot), Valid: true}
@@ -188,30 +188,30 @@ func DeltaMS(from, to time.Time) *int64 {
 	return &ms
 }
 
-func (t *Tracker) priorTimestamp(ctx context.Context, txID string, stage aegis.LifecycleStage) time.Time {
+func (t *Tracker) priorTimestamp(ctx context.Context, txID string, stage txpilot.LifecycleStage) time.Time {
 	row, err := t.q.GetTransaction(ctx, txID)
 	if err != nil {
 		return time.Time{}
 	}
 	switch stage {
-	case aegis.StageSubmitted:
+	case txpilot.StageSubmitted:
 		return row.CreatedAt.Time
-	case aegis.StageProcessed:
+	case txpilot.StageProcessed:
 		if row.SubmittedAt.Valid {
 			return row.SubmittedAt.Time
 		}
-	case aegis.StageConfirmed:
+	case txpilot.StageConfirmed:
 		if row.ProcessedAt.Valid {
 			return row.ProcessedAt.Time
 		}
 		if row.SubmittedAt.Valid {
 			return row.SubmittedAt.Time
 		}
-	case aegis.StageFinalized:
+	case txpilot.StageFinalized:
 		if row.ConfirmedAt.Valid {
 			return row.ConfirmedAt.Time
 		}
-	case aegis.StageFailed:
+	case txpilot.StageFailed:
 		if row.SubmittedAt.Valid {
 			return row.SubmittedAt.Time
 		}

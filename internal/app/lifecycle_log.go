@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
-func (cp *ControlPlane) ExportLifecycleLog(ctx context.Context, limit int32) ([]aegis.LifecycleLogEntry, error) {
+func (cp *ControlPlane) ExportLifecycleLog(ctx context.Context, limit int32) ([]txpilot.LifecycleLogEntry, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -18,22 +18,22 @@ func (cp *ControlPlane) ExportLifecycleLog(ctx context.Context, limit int32) ([]
 	if err != nil {
 		return nil, err
 	}
-	out := make([]aegis.LifecycleLogEntry, 0, len(txs))
+	out := make([]txpilot.LifecycleLogEntry, 0, len(txs))
 	for _, txRow := range txs {
-		entry := aegis.LifecycleLogEntry{
-			TransactionID:         aegis.TransactionID(txRow.ID),
-			SubmissionKind:        aegis.SubmissionKind(txRow.SubmissionKind),
+		entry := txpilot.LifecycleLogEntry{
+			TransactionID:         txpilot.TransactionID(txRow.ID),
+			SubmissionKind:        txpilot.SubmissionKind(txRow.SubmissionKind),
 			Status:                txRow.Status,
-			Stage:                 aegis.LifecycleStage(txRow.Stage),
+			Stage:                 txpilot.LifecycleStage(txRow.Stage),
 			TipLamports:           txRow.TipLamports,
 			RetryAttempt:          txRow.RetryAttempt,
 			CommitmentProgression: []string{},
 		}
 		if txRow.Signature.Valid {
-			entry.Signature = aegis.Signature(txRow.Signature.String)
+			entry.Signature = txpilot.Signature(txRow.Signature.String)
 		}
 		if txRow.BundleID.Valid {
-			entry.BundleID = aegis.BundleID(txRow.BundleID.String)
+			entry.BundleID = txpilot.BundleID(txRow.BundleID.String)
 		}
 		if txRow.SubmittedSlot.Valid {
 			entry.SubmittedSlot = uint64(txRow.SubmittedSlot.Int64)
@@ -51,7 +51,7 @@ func (cp *ControlPlane) ExportLifecycleLog(ctx context.Context, limit int32) ([]
 			entry.Leader = txRow.Leader.String
 		}
 		if txRow.FailureKind.Valid {
-			entry.FailureKind = aegis.FailureKind(txRow.FailureKind.String)
+			entry.FailureKind = txpilot.FailureKind(txRow.FailureKind.String)
 		}
 		entry.SubmittedAt = tsPtr(txRow.SubmittedAt)
 		entry.ProcessedAt = tsPtr(txRow.ProcessedAt)

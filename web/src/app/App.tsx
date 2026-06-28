@@ -53,50 +53,50 @@ const C = {
 // CSS ANIMATIONS (injected once)
 // ─────────────────────────────────────────────────────────────
 
-const AEGIS_CSS = `
-  @keyframes aegis-pulse {
+const TX_PILOT_CSS = `
+  @keyframes tx-pilot-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.35; transform: scale(0.75); }
   }
-  @keyframes aegis-glow {
+  @keyframes tx-pilot-glow {
     0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.35); }
     50% { box-shadow: 0 0 22px rgba(0,212,255,0.75), 0 0 44px rgba(0,212,255,0.2); }
   }
-  @keyframes aegis-flow {
+  @keyframes tx-pilot-flow {
     0% { left: -12%; opacity: 0; }
     8% { opacity: 1; }
     92% { opacity: 1; }
     100% { left: 108%; opacity: 0; }
   }
-  @keyframes aegis-row-in {
+  @keyframes tx-pilot-row-in {
     from { opacity: 0; transform: translateY(-5px); background: rgba(0,212,255,0.06); }
     to   { opacity: 1; transform: translateY(0);    background: transparent; }
   }
-  @keyframes aegis-scan {
+  @keyframes tx-pilot-scan {
     0%   { transform: translateY(0); opacity: 0.6; }
     100% { transform: translateY(100%); opacity: 0; }
   }
-  @keyframes aegis-spin-slow {
+  @keyframes tx-pilot-spin-slow {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
-  @keyframes aegis-fade-in {
+  @keyframes tx-pilot-fade-in {
     from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes aegis-blink {
+  @keyframes tx-pilot-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.2; }
   }
-  .aegis-node-glow { animation: aegis-glow 2.2s ease-in-out infinite; }
-  .aegis-live-dot  { animation: aegis-pulse 1.4s ease-in-out infinite; }
-  .aegis-row-in    { animation: aegis-row-in 0.4s ease forwards; }
-  .aegis-fade-in   { animation: aegis-fade-in 0.5s ease forwards; }
+  .tx-pilot-node-glow { animation: tx-pilot-glow 2.2s ease-in-out infinite; }
+  .tx-pilot-live-dot  { animation: tx-pilot-pulse 1.4s ease-in-out infinite; }
+  .tx-pilot-row-in    { animation: tx-pilot-row-in 0.4s ease forwards; }
+  .tx-pilot-fade-in   { animation: tx-pilot-fade-in 0.5s ease forwards; }
 
-  .aegis-scroll::-webkit-scrollbar { width: 3px; height: 3px; }
-  .aegis-scroll::-webkit-scrollbar-track { background: transparent; }
-  .aegis-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.18); border-radius: 2px; }
-  .aegis-scroll:hover::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.38); }
+  .tx-pilot-scroll::-webkit-scrollbar { width: 3px; height: 3px; }
+  .tx-pilot-scroll::-webkit-scrollbar-track { background: transparent; }
+  .tx-pilot-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.18); border-radius: 2px; }
+  .tx-pilot-scroll:hover::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.38); }
 
   body { font-family: 'Barlow', sans-serif; background: #07090e; }
 `;
@@ -107,7 +107,7 @@ const AEGIS_CSS = `
 
 const LiveDot = ({ color = C.green, size = 6 }: { color?: string; size?: number }) => (
   <span
-    className="aegis-live-dot inline-block rounded-full flex-shrink-0"
+    className="tx-pilot-live-dot inline-block rounded-full flex-shrink-0"
     style={{ width: size, height: size, background: color, boxShadow: `0 0 ${size + 2}px ${color}` }}
   />
 );
@@ -433,7 +433,7 @@ function GlobalStatusBar({ ticker, wsConnected }: {
           <Shield size={13} color={C.cyan} />
         </div>
         <span style={{ fontFamily: C.sans, fontWeight: 700, fontSize: 14, color: "#ddeeff", letterSpacing: "0.08em" }}>
-          AEGIS
+          TX PILOT
         </span>
         <LiveDot size={5} />
       </div>
@@ -489,7 +489,7 @@ function LeftSidebar({ slotFeed, leaderWindows, networkHealth, bundleTiles }: {
       display: "flex", flexDirection: "column",
       overflow: "hidden",
     }}>
-      <div className="aegis-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="tx-pilot-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
 
         {/* Live Slot Feed — fixed height rolling window */}
         <Card>
@@ -652,7 +652,7 @@ function PipelineHero({ counts, latencies }: { counts: number[]; latencies: stri
 
               {/* Node circle */}
               <div
-                className={i === 2 ? "aegis-node-glow" : ""}
+                className={i === 2 ? "tx-pilot-node-glow" : ""}
                 style={{
                   width: 48, height: 48, borderRadius: "50%",
                   background: `radial-gradient(circle, ${stage.color}22 0%, ${stage.color}08 100%)`,
@@ -697,7 +697,7 @@ function PipelineHero({ counts, latencies }: { counts: number[]; latencies: stri
                       position: "absolute", top: -1, height: 4, width: "18%",
                       background: `linear-gradient(90deg, transparent, ${stages[i + 1].color}cc, transparent)`,
                       borderRadius: 2,
-                      animation: `aegis-flow ${1.8 + i * 0.2}s ${j * 0.6}s infinite linear`,
+                      animation: `tx-pilot-flow ${1.8 + i * 0.2}s ${j * 0.6}s infinite linear`,
                     }}
                   />
                 ))}
@@ -771,7 +771,7 @@ function TxFeed({ transactions, selectedId, onSelect }: {
         </div>
 
         {/* Rows */}
-        <div className="aegis-scroll" style={{ maxHeight: 220, overflowY: "auto", minWidth: 620 }}>
+        <div className="tx-pilot-scroll" style={{ maxHeight: 220, overflowY: "auto", minWidth: 620 }}>
           {visible.length === 0 ? (
             <div style={{ padding: "24px 14px", textAlign: "center", fontFamily: C.mono, fontSize: 10, color: C.muted }}>
               Waiting for transactions…
@@ -779,7 +779,7 @@ function TxFeed({ transactions, selectedId, onSelect }: {
           ) : visible.map((tx, i) => (
             <div
               key={tx.id}
-              className={i === 0 ? "aegis-row-in" : ""}
+              className={i === 0 ? "tx-pilot-row-in" : ""}
               onClick={() => onSelect(tx.id === selectedId ? "" : tx.id)}
               style={{
                 display: "grid",
@@ -925,7 +925,7 @@ function ReplayTimeline({ tx, events, cluster, onClose, docked = false }: {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} className="aegis-scroll">
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }} className="tx-pilot-scroll">
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
         <TraceMetaRow
           label="SIG"
@@ -1019,7 +1019,7 @@ function CenterPanel({ transactions, selectedTxId, onSelectTx, pipelineCounts, p
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
       <div
-        className="aegis-scroll"
+        className="tx-pilot-scroll"
         style={{
           flex: 1,
           minHeight: 0,
@@ -1063,7 +1063,7 @@ function RightPanel({ decisions, failures, landingProb, landingFactorBars, recov
       display: "flex", flexDirection: "column",
       overflow: "hidden",
     }}>
-      <div className="aegis-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="tx-pilot-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
 
         {/* AI Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
@@ -1083,7 +1083,7 @@ function RightPanel({ decisions, failures, landingProb, landingFactorBars, recov
           <SectionLabel icon={Zap}>AI Decision Feed</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {decisions.map((d, i) => (
-              <div key={d.id} className={i === 0 ? "aegis-fade-in" : ""} style={{
+              <div key={d.id} className={i === 0 ? "tx-pilot-fade-in" : ""} style={{
                 background: C.cardAlt, borderRadius: 4, padding: "8px 9px",
                 border: `1px solid ${C.border}`,
               }}>
@@ -1184,7 +1184,7 @@ function RightPanel({ decisions, failures, landingProb, landingFactorBars, recov
                   {step.done
                     ? <CheckCircle2 size={9} color={C.green} />
                     : i === activeStep
-                      ? <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.cyan, animation: "aegis-pulse 1s ease-in-out infinite" }} />
+                      ? <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.cyan, animation: "tx-pilot-pulse 1s ease-in-out infinite" }} />
                       : <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.dim }} />
                   }
                 </div>
@@ -1363,7 +1363,7 @@ export default function App() {
   if (isLoading && transactions.length === 0) {
     return (
       <>
-        <style>{AEGIS_CSS}</style>
+        <style>{TX_PILOT_CSS}</style>
         <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, color: C.sub, fontFamily: C.mono }}>
           Loading dashboard…
         </div>
@@ -1373,7 +1373,7 @@ export default function App() {
 
   return (
     <>
-      <style>{AEGIS_CSS}</style>
+      <style>{TX_PILOT_CSS}</style>
       <div
         style={{
           height: "100vh", display: "flex", flexDirection: "column",

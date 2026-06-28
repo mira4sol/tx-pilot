@@ -5,24 +5,24 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/mira4sol/aegis/internal/agent"
-	"github.com/mira4sol/aegis/internal/bundle"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/agent"
+	"github.com/mira4sol/tx-pilot/internal/bundle"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
 type tipPlan struct {
 	Lamports      uint64
 	FloorLamports uint64
-	Source        aegis.TipSource
+	Source        txpilot.TipSource
 	Decision      agent.Decision
 	DecisionID    string
 	TargetSlot    uint64
 	Leader        string
 }
 
-func (cp *ControlPlane) planTip(ctx context.Context, txID aegis.TransactionID, policyMode aegis.PolicyMode, requested *uint64) (tipPlan, error) {
+func (cp *ControlPlane) planTip(ctx context.Context, txID txpilot.TransactionID, policyMode txpilot.PolicyMode, requested *uint64) (tipPlan, error) {
 	if cp.jito.TipAccountsCount() == 0 {
 		_ = cp.jito.LoadTipAccounts(ctx)
 	}
@@ -88,7 +88,7 @@ func (cp *ControlPlane) planTip(ctx context.Context, txID aegis.TransactionID, p
 // commitTipDecision persists the agent decision produced by planTip and links it
 // to the (now existing) transaction row, broadcasting it to the AI feed. It must
 // be called after CreateTransaction.
-func (cp *ControlPlane) commitTipDecision(ctx context.Context, txID aegis.TransactionID, plan *tipPlan) {
+func (cp *ControlPlane) commitTipDecision(ctx context.Context, txID txpilot.TransactionID, plan *tipPlan) {
 	if plan == nil {
 		return
 	}
@@ -103,9 +103,9 @@ func (cp *ControlPlane) commitTipDecision(ctx context.Context, txID aegis.Transa
 	plan.DecisionID = decisionID
 }
 
-func (cp *ControlPlane) buildSignedTipTx(ctx context.Context, tipLamports uint64, blockhash solana.Hash, enc aegis.Encoding) (string, aegis.Encoding, error) {
+func (cp *ControlPlane) buildSignedTipTx(ctx context.Context, tipLamports uint64, blockhash solana.Hash, enc txpilot.Encoding) (string, txpilot.Encoding, error) {
 	if enc == "" {
-		enc = aegis.EncodingBase64
+		enc = txpilot.EncodingBase64
 	}
 	if cp.factory == nil {
 		return "", "", fmt.Errorf("server signer not configured")

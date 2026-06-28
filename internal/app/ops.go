@@ -8,21 +8,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/lifecycle"
-	"github.com/mira4sol/aegis/internal/scheduler"
-	"github.com/mira4sol/aegis/internal/storage"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/lifecycle"
+	"github.com/mira4sol/tx-pilot/internal/scheduler"
+	"github.com/mira4sol/tx-pilot/internal/storage"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
-func (cp *ControlPlane) SubmitOps(ctx context.Context, req aegis.SubmitOpsRequest) (aegis.SubmitResponse, error) {
+func (cp *ControlPlane) SubmitOps(ctx context.Context, req txpilot.SubmitOpsRequest) (txpilot.SubmitResponse, error) {
 	if cp.factory == nil {
-		return aegis.SubmitResponse{}, fmt.Errorf("server signer not configured")
+		return txpilot.SubmitResponse{}, fmt.Errorf("server signer not configured")
 	}
 
-	txID := aegis.TransactionID("tx_" + uuid.NewString())
+	txID := txpilot.TransactionID("tx_" + uuid.NewString())
 	policyMode := req.PolicyMode
 	if policyMode == "" {
 		policyMode = cp.cfg.PolicyMode
@@ -38,12 +38,12 @@ func (cp *ControlPlane) SubmitOps(ctx context.Context, req aegis.SubmitOpsReques
 
 	plan, err := cp.planTip(ctx, txID, policyMode, req.TipLamports)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
 	blockhash, err := cp.fetchProcessedBlockhash(ctx)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	if req.InjectExpiredBlockhash {
 		blockhash = expiredBlockhashForInjection()
@@ -55,68 +55,68 @@ func (cp *ControlPlane) SubmitOps(ctx context.Context, req aegis.SubmitOpsReques
 	}
 	memo := req.Memo
 	if memo == "" {
-		memo = string(aegis.OpsMemoPrefix) + "submit"
+		memo = string(txpilot.OpsMemoPrefix) + "submit"
 	} else if !isOpsTransaction(memo) {
-		memo = string(aegis.OpsMemoPrefix) + memo
+		memo = string(txpilot.OpsMemoPrefix) + memo
 	}
 
 	tipAccount, err := cp.jito.PickTipAccount()
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	// Build a single transaction that carries the ops payload AND the Jito tip.
 	// Jito's sendTransaction endpoint auto-bundles it and lands it reliably,
 	// whereas a separate-tip sendBundle is dropped by the public block engine.
 	opsTx, err := cp.factory.BuildSelfTransferWithTip(ctx, lamports, memo, tipAccount, plan.Lamports, blockhash)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
-	opsEncoded, err := tx.EncodeTransaction(opsTx, aegis.EncodingBase64)
+	opsEncoded, err := tx.EncodeTransaction(opsTx, txpilot.EncodingBase64)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
-	sigs, err := tx.ExtractSignaturesFromBundle([]string{opsEncoded}, aegis.EncodingBase64)
+	sigs, err := tx.ExtractSignaturesFromBundle([]string{opsEncoded}, txpilot.EncodingBase64)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	sigsJSON, _ := json.Marshal(sigs)
 
 	_, err = cp.q.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-		ID: string(txID), Status: string(aegis.StatusPending), Stage: string(aegis.StageCreated),
+		ID: string(txID), Status: string(txpilot.StatusPending), Stage: string(txpilot.StageCreated),
 		PolicyMode: string(policyMode), TipLamports: int64(plan.Lamports),
 		RequestedTipLamports: int64(plan.Lamports), FloorLamports: int64(plan.FloorLamports),
 		TipSource: string(plan.Source), Memo: pgtype.Text{String: memo, Valid: true},
-		RetryAttempt: 0, SubmissionKind: string(aegis.SubmissionBundle),
-		Encoding: string(aegis.EncodingBase64), Signatures: sigsJSON, TxCount: 1,
+		RetryAttempt: 0, SubmissionKind: string(txpilot.SubmissionBundle),
+		Encoding: string(txpilot.EncodingBase64), Signatures: sigsJSON, TxCount: 1,
 		Signature: pgtype.Text{String: sigs[0], Valid: len(sigs) > 0},
 	})
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
 	cp.logger.Info("transaction created",
 		zap.String("transaction_id", string(txID)),
-		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.String("submission_kind", string(txpilot.SubmissionBundle)),
 		zap.Strings("signatures", sigs),
 	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
+		TransactionID: txID, Stage: txpilot.StageCreated, Timestamp: time.Now().UTC(),
 		Metadata: map[string]any{"timing_reason": timing.Reason, "inject_expired": req.InjectExpiredBlockhash},
 	})
 
-	bundleID, err := cp.forwardOpsTransaction(ctx, txID, opsEncoded, aegis.EncodingBase64, sigs[0], blockhash.String(), plan)
+	bundleID, err := cp.forwardOpsTransaction(ctx, txID, opsEncoded, txpilot.EncodingBase64, sigs[0], blockhash.String(), plan)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
-	return aegis.SubmitResponse{
-		TransactionID: txID, SubmissionKind: aegis.SubmissionBundle,
-		Result: bundleID, BundleID: aegis.BundleID(bundleID),
-		Signatures: sigs, Signature: aegis.Signature(sigs[0]),
-		Status: string(aegis.StatusSubmitted), Encoding: string(aegis.EncodingBase64),
+	return txpilot.SubmitResponse{
+		TransactionID: txID, SubmissionKind: txpilot.SubmissionBundle,
+		Result: bundleID, BundleID: txpilot.BundleID(bundleID),
+		Signatures: sigs, Signature: txpilot.Signature(sigs[0]),
+		Status: string(txpilot.StatusSubmitted), Encoding: string(txpilot.EncodingBase64),
 		TipFloorLamports: plan.FloorLamports, TipLamports: plan.Lamports, TipSource: plan.Source,
 	}, nil
 }

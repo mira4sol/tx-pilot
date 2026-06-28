@@ -10,29 +10,29 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/agent"
-	"github.com/mira4sol/aegis/internal/failure"
-	"github.com/mira4sol/aegis/internal/lifecycle"
-	"github.com/mira4sol/aegis/internal/storage"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/agent"
+	"github.com/mira4sol/tx-pilot/internal/failure"
+	"github.com/mira4sol/tx-pilot/internal/lifecycle"
+	"github.com/mira4sol/tx-pilot/internal/storage"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
 type recoveryContext struct {
-	TransactionID  aegis.TransactionID
-	SubmissionKind aegis.SubmissionKind
+	TransactionID  txpilot.TransactionID
+	SubmissionKind txpilot.SubmissionKind
 	BundleID       string
 	Signatures     []string
 	Blockhash      string
 	RetryAttempt   int32
 	OpsMemo        string
 	OpsLamports    uint64
-	PolicyMode     aegis.PolicyMode
+	PolicyMode     txpilot.PolicyMode
 }
 
-func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.TransactionID, kind aegis.FailureKind, title, action string, rc recoveryContext) {
+func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID txpilot.TransactionID, kind txpilot.FailureKind, title, action string, rc recoveryContext) {
 	if cp.agent == nil {
 		return
 	}
@@ -63,10 +63,10 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 			rc.OpsMemo = row.Memo.String
 		}
 		if rc.PolicyMode == "" {
-			rc.PolicyMode = aegis.PolicyMode(row.PolicyMode)
+			rc.PolicyMode = txpilot.PolicyMode(row.PolicyMode)
 		}
 		if rc.SubmissionKind == "" {
-			rc.SubmissionKind = aegis.SubmissionKind(row.SubmissionKind)
+			rc.SubmissionKind = txpilot.SubmissionKind(row.SubmissionKind)
 		}
 	}
 
@@ -116,12 +116,12 @@ func (cp *ControlPlane) HandleFailureRecovery(ctx context.Context, txID aegis.Tr
 	cp.updateRecoveryActionStatus(ctx, recoveryID, "done")
 }
 
-func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.TransactionID, rc recoveryContext, decision agent.Decision) error {
+func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID txpilot.TransactionID, rc recoveryContext, decision agent.Decision) error {
 	if cp.factory == nil {
 		return fmt.Errorf("server signer not configured")
 	}
 
-	newTxID := aegis.TransactionID("tx_" + uuid.NewString())
+	newTxID := txpilot.TransactionID("tx_" + uuid.NewString())
 	policyMode := rc.PolicyMode
 	if policyMode == "" {
 		policyMode = cp.cfg.PolicyMode
@@ -160,7 +160,7 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 	}
 	memo := rc.OpsMemo
 	if memo == "" {
-		memo = string(aegis.OpsMemoPrefix) + "retry"
+		memo = string(txpilot.OpsMemoPrefix) + "retry"
 	}
 
 	tipAccount, err := cp.jito.PickTipAccount()
@@ -171,12 +171,12 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 	if err != nil {
 		return err
 	}
-	opsEncoded, err := tx.EncodeTransaction(opsTx, aegis.EncodingBase64)
+	opsEncoded, err := tx.EncodeTransaction(opsTx, txpilot.EncodingBase64)
 	if err != nil {
 		return err
 	}
 
-	sigs, err := tx.ExtractSignaturesFromBundle([]string{opsEncoded}, aegis.EncodingBase64)
+	sigs, err := tx.ExtractSignaturesFromBundle([]string{opsEncoded}, txpilot.EncodingBase64)
 	if err != nil {
 		return err
 	}
@@ -184,12 +184,12 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 
 	retryAttempt := rc.RetryAttempt + 1
 	_, err = cp.q.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-		ID: string(newTxID), Status: string(aegis.StatusPending), Stage: string(aegis.StageCreated),
+		ID: string(newTxID), Status: string(txpilot.StatusPending), Stage: string(txpilot.StageCreated),
 		PolicyMode: string(policyMode), TipLamports: int64(plan.Lamports),
 		RequestedTipLamports: int64(plan.Lamports), FloorLamports: int64(plan.FloorLamports),
 		TipSource: string(plan.Source), Memo: pgtype.Text{String: memo, Valid: true},
-		RetryAttempt: retryAttempt, SubmissionKind: string(aegis.SubmissionBundle),
-		Encoding: string(aegis.EncodingBase64), Signatures: sigsJSON, TxCount: 1,
+		RetryAttempt: retryAttempt, SubmissionKind: string(txpilot.SubmissionBundle),
+		Encoding: string(txpilot.EncodingBase64), Signatures: sigsJSON, TxCount: 1,
 		Signature: pgtype.Text{String: sigs[0], Valid: len(sigs) > 0},
 	})
 	if err != nil {
@@ -199,7 +199,7 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 	cp.commitTipDecision(ctx, newTxID, &plan)
 
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: newTxID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
+		TransactionID: newTxID, Stage: txpilot.StageCreated, Timestamp: time.Now().UTC(),
 		Metadata: map[string]any{"retry_of": string(parentID), "agent_action": decision.Action},
 	})
 
@@ -215,7 +215,7 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 		zap.Int32("retry_attempt", retryAttempt),
 	)
 
-	bundleID, err := cp.forwardOpsTransaction(ctx, newTxID, opsEncoded, aegis.EncodingBase64, sigs[0], blockhash.String(), plan)
+	bundleID, err := cp.forwardOpsTransaction(ctx, newTxID, opsEncoded, txpilot.EncodingBase64, sigs[0], blockhash.String(), plan)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (cp *ControlPlane) resubmitOps(ctx context.Context, parentID aegis.Transact
 }
 
 func isOpsTransaction(memo string) bool {
-	return strings.HasPrefix(memo, string(aegis.OpsMemoPrefix))
+	return strings.HasPrefix(memo, string(txpilot.OpsMemoPrefix))
 }
 
 func expiredBlockhashForInjection() solana.Hash {

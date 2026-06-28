@@ -3,7 +3,7 @@ package agent
 import (
 	"fmt"
 
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 func fallbackTipDecision(facts TipFacts) Decision {
@@ -32,7 +32,7 @@ func fallbackTipDecision(facts TipFacts) Decision {
 
 func fallbackDecision(facts DecisionFacts) Decision {
 	switch facts.Failure.Kind {
-	case aegis.FailureExpiredBlockhash:
+	case txpilot.FailureExpiredBlockhash:
 		return Decision{
 			Type: "blockhash_refresh", Title: "Refresh blockhash",
 			Summary:       "Fallback: expired blockhash requires refresh before resubmit",
@@ -40,7 +40,7 @@ func fallbackDecision(facts DecisionFacts) Decision {
 			Action:        map[string]any{"kind": "refresh_blockhash"},
 			ConfidencePct: 70,
 		}
-	case aegis.FailureTipBelowFloor, aegis.FailureBundleRejected:
+	case txpilot.FailureTipBelowFloor, txpilot.FailureBundleRejected:
 		return Decision{
 			Type: "tip_adjustment", Title: "Increase tip",
 			Summary:       "Fallback: raise tip above observed floor",

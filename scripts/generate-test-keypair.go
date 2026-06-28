@@ -11,7 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 )
 
-const outFile = "aegis-test-keypair.json"
+const outFile = "tx-pilot-test-keypair.json"
 
 func main() {
 	if _, err := os.Stat(outFile); err == nil {

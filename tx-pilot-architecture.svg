@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">TX Pilot Autonomous Solana Transaction Control Plane Architecture</title>
+  <desc id="desc">Detailed server architecture showing HTTPS polling, WebSocket updates, signed webhooks, bounded goroutine workers, sharded lifecycle tracking, River durable queue, Solana Yellowstone streams, Jito bundles, AI decisions, storage, and observability.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .panel { fill: #ffffff; stroke: #c8d2df; stroke-width: 2; rx: 14; }
+      .blue { fill: #eef6ff; stroke: #66a4df; stroke-width: 2; rx: 12; }
+      .green { fill: #edf8f1; stroke: #58b879; stroke-width: 2; rx: 12; }
+      .amber { fill: #fff7e8; stroke: #d49b45; stroke-width: 2; rx: 12; }
+      .red { fill: #fff0f0; stroke: #d87878; stroke-width: 2; rx: 12; }
+      .gray { fill: #f0f2f5; stroke: #a8b2bf; stroke-width: 2; rx: 12; }
+      .dark { fill: #172033; stroke: #172033; stroke-width: 2; rx: 12; }
+      .title { font: 700 36px Arial, sans-serif; fill: #111827; }
+      .subtitle { font: 400 18px Arial, sans-serif; fill: #4b5563; }
+      .h { font: 700 20px Arial, sans-serif; fill: #111827; }
+      .t { font: 400 15px Arial, sans-serif; fill: #273244; }
+      .s { font: 400 13px Arial, sans-serif; fill: #465569; }
+      .mono { font: 700 13px "SFMono-Regular", Consolas, monospace; fill: #334155; }
+      .white { font: 700 16px Arial, sans-serif; fill: #ffffff; }
+      .arrow { stroke: #334155; stroke-width: 2.3; fill: none; marker-end: url(#arrowhead); }
+      .soft { stroke: #64748b; stroke-width: 2; stroke-dasharray: 8 7; fill: none; marker-end: url(#softhead); }
+      .hot { stroke: #b7791f; stroke-width: 2.5; fill: none; marker-end: url(#hothead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#334155"/>
+    </marker>
+    <marker id="softhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#64748b"/>
+    </marker>
+    <marker id="hothead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#b7791f"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1800" height="1200"/>
+  <text x="70" y="65" class="title">TX Pilot</text>
+  <text x="70" y="98" class="subtitle">Autonomous Solana Transaction Control Plane - parallel Go server, durable queue, and client notification architecture</text>
+
+  <rect x="60" y="145" width="250" height="210" class="gray"/>
+  <text x="90" y="185" class="h">Clients</text>
+  <text x="90" y="220" class="t">CLI and SDK</text>
+  <text x="90" y="248" class="t">Operator dashboard</text>
+  <text x="90" y="276" class="t">External apps</text>
+  <text x="90" y="314" class="mono">POST /v1/transactions</text>
+
+  <rect x="60" y="430" width="250" height="230" class="gray"/>
+  <text x="90" y="470" class="h">Status Access</text>
+  <text x="90" y="506" class="t">HTTPS polling</text>
+  <text x="90" y="534" class="t">WebSocket live stream</text>
+  <text x="90" y="562" class="t">Signed webhooks</text>
+  <text x="90" y="600" class="mono">GET /tx/{id}</text>
+  <text x="90" y="626" class="mono">GET /tx/{id}/timeline</text>
+  <text x="90" y="650" class="mono">GET /dashboard/snapshot</text>
+
+  <rect x="360" y="135" width="1020" height="930" class="panel"/>
+  <text x="395" y="178" class="h">TX Pilot Go Server</text>
+  <text x="395" y="206" class="s">cmd/tx-pilot runs bounded goroutine pipelines for hot paths and River jobs for durable retries, deliveries, exports, and replay.</text>
+
+  <rect x="395" y="245" width="245" height="130" class="blue"/>
+  <text x="420" y="282" class="h">API Gateway</text>
+  <text x="420" y="314" class="t">REST submit/status</text>
+  <text x="420" y="340" class="t">Dashboard snapshots</text>
+  <text x="420" y="362" class="s">auth, rate limits, request IDs</text>
+
+  <rect x="690" y="245" width="245" height="130" class="green"/>
+  <text x="715" y="282" class="h">Stream Engine</text>
+  <text x="715" y="314" class="t">Yellowstone/Geyser</text>
+  <text x="715" y="340" class="t">slots, leaders, signatures</text>
+  <text x="715" y="362" class="s">reconnect + backpressure</text>
+
+  <rect x="985" y="245" width="245" height="130" class="amber"/>
+  <text x="1010" y="282" class="h">Bounded Event Bus</text>
+  <text x="1010" y="314" class="t">typed channels</text>
+  <text x="1010" y="340" class="t">queue depth metrics</text>
+  <text x="1010" y="362" class="s">no unbounded goroutines</text>
+
+  <rect x="395" y="430" width="245" height="145" class="amber"/>
+  <text x="420" y="467" class="h">Scheduler Pool</text>
+  <text x="420" y="499" class="t">N goroutine workers</text>
+  <text x="420" y="525" class="t">leader window targeting</text>
+  <text x="420" y="551" class="s">FAST / SAFE / CHEAP / AGGRESSIVE</text>
+
+  <rect x="690" y="430" width="245" height="145" class="amber"/>
+  <text x="715" y="467" class="h">Bundle Pool</text>
+  <text x="715" y="499" class="t">N goroutine workers</text>
+  <text x="715" y="525" class="t">Jito bundle submit</text>
+  <text x="715" y="551" class="s">dynamic tips, no constants</text>
+
+  <rect x="985" y="430" width="245" height="145" class="blue"/>
+  <text x="1010" y="467" class="h">Lifecycle Shards</text>
+  <text x="1010" y="499" class="t">hash(signature) -> shard</text>
+  <text x="1010" y="525" class="t">ordered per-transaction state</text>
+  <text x="1010" y="551" class="s">submitted, processed, confirmed</text>
+
+  <rect x="395" y="630" width="245" height="145" class="green"/>
+  <text x="420" y="667" class="h">RPC + TX Boundary</text>
+  <text x="420" y="699" class="t">blockhash freshness</text>
+  <text x="420" y="725" class="t">simulation and signing</text>
+  <text x="420" y="751" class="s">no secrets in agent/logs</text>
+
+  <rect x="690" y="630" width="245" height="145" class="red"/>
+  <text x="715" y="667" class="h">Failure + AI Agent</text>
+  <text x="715" y="699" class="t">classify root cause</text>
+  <text x="715" y="725" class="t">retry/tip/timing decision</text>
+  <text x="715" y="751" class="s">structured decision trace</text>
+
+  <rect x="985" y="630" width="245" height="145" class="blue"/>
+  <text x="1010" y="667" class="h">Notify Dispatcher</text>
+  <text x="1010" y="699" class="t">webhook fanout</text>
+  <text x="1010" y="725" class="t">dashboard WebSocket hub</text>
+  <text x="1010" y="751" class="s">idempotency + replay</text>
+
+  <rect x="395" y="830" width="245" height="145" class="gray"/>
+  <text x="420" y="867" class="h">River Queue</text>
+  <text x="420" y="899" class="t">durable retries</text>
+  <text x="420" y="925" class="t">webhook delivery jobs</text>
+  <text x="420" y="951" class="s">dead-letter + delayed jobs</text>
+
+  <rect x="690" y="830" width="245" height="145" class="gray"/>
+  <text x="715" y="867" class="h">Storage</text>
+  <text x="715" y="899" class="t">append-only events</text>
+  <text x="715" y="925" class="t">status snapshots</text>
+  <text x="715" y="951" class="s">lifecycle evidence and replay</text>
+
+  <rect x="985" y="830" width="245" height="145" class="dark"/>
+  <text x="1010" y="867" class="white">Observability</text>
+  <text x="1010" y="899" class="white">logs, metrics, traces</text>
+  <text x="1010" y="925" class="white">worker queue depth</text>
+  <text x="1010" y="951" class="white">latency and landing rates</text>
+
+  <rect x="1430" y="145" width="280" height="170" class="green"/>
+  <text x="1460" y="185" class="h">Solana Network</text>
+  <text x="1460" y="220" class="t">leaders and slots</text>
+  <text x="1460" y="248" class="t">commitment evidence</text>
+  <text x="1460" y="276" class="t">recent blockhashes</text>
+
+  <rect x="1430" y="370" width="280" height="170" class="amber"/>
+  <text x="1460" y="410" class="h">Jito Block Engine</text>
+  <text x="1460" y="445" class="t">bundle submission</text>
+  <text x="1460" y="473" class="t">tip accounts</text>
+  <text x="1460" y="501" class="t">bundle result status</text>
+
+  <rect x="1430" y="595" width="280" height="170" class="red"/>
+  <text x="1460" y="635" class="h">Model Provider</text>
+  <text x="1460" y="670" class="t">bounded facts in</text>
+  <text x="1460" y="698" class="t">validated decision JSON out</text>
+  <text x="1460" y="726" class="s">no private keys or signing authority</text>
+
+  <rect x="1430" y="820" width="280" height="170" class="gray"/>
+  <text x="1460" y="860" class="h">Bounty Evidence</text>
+  <text x="1460" y="895" class="t">10 lifecycle records</text>
+  <text x="1460" y="923" class="t">2 classified failures</text>
+  <text x="1460" y="951" class="t">replayable timelines</text>
+
+  <rect x="60" y="720" width="250" height="250" class="blue"/>
+  <text x="90" y="760" class="h">Dashboard Panels</text>
+  <text x="90" y="794" class="t">slot, leader, Jito leader</text>
+  <text x="90" y="820" class="t">congestion, TPS, drift</text>
+  <text x="90" y="846" class="t">bundle land rate, tip floor</text>
+  <text x="90" y="872" class="t">lifecycle + tx stream</text>
+  <text x="90" y="898" class="t">AI decisions + failures</text>
+  <text x="90" y="924" class="t">landing probability</text>
+  <text x="90" y="950" class="t">rolling chart series</text>
+
+  <path class="arrow" d="M310 250 H395"/>
+  <path class="arrow" d="M310 540 H395"/>
+  <path class="arrow" d="M395 335 C340 405,340 810,310 830"/>
+  <path class="hot" d="M640 310 H690"/>
+  <path class="hot" d="M935 310 H985"/>
+  <path class="hot" d="M1108 375 V430"/>
+  <path class="hot" d="M985 503 H935"/>
+  <path class="hot" d="M690 503 H640"/>
+  <path class="hot" d="M518 575 V630"/>
+  <path class="hot" d="M640 703 H690"/>
+  <path class="hot" d="M935 703 H985"/>
+  <path class="arrow" d="M1108 575 V630"/>
+  <path class="arrow" d="M1108 775 V830"/>
+  <path class="arrow" d="M985 902 H935"/>
+  <path class="arrow" d="M690 902 H640"/>
+  <path class="soft" d="M518 775 V830"/>
+  <path class="soft" d="M812 775 V830"/>
+  <path class="soft" d="M812 375 V830"/>
+
+  <path class="arrow" d="M1230 310 C1330 310,1330 230,1430 230"/>
+  <path class="arrow" d="M1430 256 C1330 256,1330 310,935 310"/>
+  <path class="arrow" d="M935 503 C1330 503,1330 455,1430 455"/>
+  <path class="arrow" d="M1430 483 C1330 483,1330 503,935 503"/>
+  <path class="arrow" d="M935 703 H1430"/>
+  <path class="arrow" d="M1430 680 H935"/>
+  <path class="soft" d="M1230 902 H1430"/>
+
+  <path class="arrow" d="M985 702 C845 790,415 740,395 865"/>
+  <path class="arrow" d="M1230 702 C1320 702,1325 540,310 540"/>
+  <path class="arrow" d="M1230 725 C1320 760,320 620,310 620"/>
+  <path class="arrow" d="M1230 735 C1320 820,360 900,310 900"/>
+
+  <text x="1250" y="210" class="mono">slot/leader streams</text>
+  <text x="1250" y="293" class="mono">commitment evidence</text>
+  <text x="1248" y="435" class="mono">submit bundle</text>
+  <text x="1248" y="525" class="mono">bundle status</text>
+  <text x="1260" y="657" class="mono">facts</text>
+  <text x="1260" y="722" class="mono">decision</text>
+  <text x="1250" y="884" class="mono">exports</text>
+
+  <rect x="390" y="1015" width="840" height="38" class="dark"/>
+  <text x="420" y="1039" class="white">Hot path: bounded channels -> goroutine worker pools -> sharded lifecycle updates -> status snapshots</text>
+  <rect x="390" y="1065" width="840" height="38" class="dark"/>
+  <text x="420" y="1089" class="white">Durable path: River jobs -> retry, delayed resubmit, webhook delivery, lifecycle export, replay, dead-letter</text>
+
+  <text x="70" y="1145" class="subtitle">Core loop: stream network state -> schedule leader window -> build and submit Jito bundle -> track each transaction individually -> classify failures -> AI changes retry/tip/timing -> notify clients and persist evidence.</text>
+</svg>

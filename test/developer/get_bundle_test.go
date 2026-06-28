@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mira4sol/aegis/test/helpers"
+	"github.com/mira4sol/tx-pilot/test/helpers"
 )
 
 func TestGetBundle(t *testing.T) {

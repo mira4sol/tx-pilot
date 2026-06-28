@@ -1,12 +1,12 @@
 /**
- * Build a signed Solana transfer with @solana/web3.js and submit it to Aegis.
+ * Build a signed Solana transfer with @solana/web3.js and submit it to TX Pilot.
  *
  * Usage (from repo root, with server running on :8080):
  *   cd demo/js && npm install && npm run submit
  *
  * Env:
- *   AEGIS_TEST_BASE_URL   — default http://localhost:8080
- *   AEGIS_KEYPAIR_PATH    — default ../../aegis-test-keypair.json
+ *   TX_PILOT_TEST_BASE_URL   — default http://localhost:8080
+ *   TX_PILOT_KEYPAIR_PATH    — default ../../tx-pilot-test-keypair.json
  */
 
 const fs = require("fs");
@@ -24,14 +24,14 @@ const MEMO_PROGRAM_ID = new PublicKey(
 );
 
 const BASE_URL =
-  process.env.AEGIS_TEST_BASE_URL ||
-  process.env.AEGIS_PUBLIC_API_BASE_URL ||
+  process.env.TX_PILOT_TEST_BASE_URL ||
+  process.env.TX_PILOT_PUBLIC_API_BASE_URL ||
   "http://localhost:8080";
 
 const KEYPAIR_CANDIDATES = [
-  process.env.AEGIS_KEYPAIR_PATH,
-  path.join(__dirname, "../../aegis-test-keypair.json"),
-  path.join(process.cwd(), "aegis-test-keypair.json"),
+  process.env.TX_PILOT_KEYPAIR_PATH,
+  path.join(__dirname, "../../tx-pilot-test-keypair.json"),
+  path.join(process.cwd(), "tx-pilot-test-keypair.json"),
 ].filter(Boolean);
 
 const TRANSFER_LAMPORTS = 1;
@@ -165,7 +165,7 @@ async function main() {
   const keypairPath = resolveKeypairPath();
   const keypair = loadKeypair(keypairPath);
 
-  console.log("Aegis JS demo — submit signed transaction");
+  console.log("TX Pilot JS demo — submit signed transaction");
   console.log(`  api:     ${BASE_URL}`);
   console.log(`  keypair: ${keypairPath}`);
   console.log(`  signer:  ${keypair.publicKey.toBase58()}`);

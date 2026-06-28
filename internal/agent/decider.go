@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/internal/failure"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/failure"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 )
@@ -124,7 +124,7 @@ func (a *OpenAIAgent) Decide(ctx context.Context, facts DecisionFacts) (Decision
 
 type TipFacts struct {
 	TransactionID string
-	PolicyMode    aegis.PolicyMode
+	PolicyMode    txpilot.PolicyMode
 	CongestionPct float64
 	FloorLamports uint64
 	BaseTip       uint64

@@ -1,7 +1,7 @@
 {
-  "name": "aegis-js-demo",
+  "name": "tx-pilot-js-demo",
   "version": "1.0.0",
-  "description": "Submit a signed Solana transaction to the Aegis API",
+  "description": "Submit a signed Solana transaction to the TX Pilot API",
   "main": "submit-transaction.js",
   "scripts": {
     "submit": "node submit-transaction.js",

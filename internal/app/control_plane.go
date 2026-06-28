@@ -9,20 +9,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/agent"
-	"github.com/mira4sol/aegis/internal/bundle"
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/internal/failure"
-	"github.com/mira4sol/aegis/internal/lifecycle"
-	"github.com/mira4sol/aegis/internal/notify"
-	"github.com/mira4sol/aegis/internal/queue"
-	aegisrpc "github.com/mira4sol/aegis/internal/rpc"
-	"github.com/mira4sol/aegis/internal/scheduler"
-	"github.com/mira4sol/aegis/internal/storage"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/internal/stream"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/agent"
+	"github.com/mira4sol/tx-pilot/internal/bundle"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/failure"
+	"github.com/mira4sol/tx-pilot/internal/lifecycle"
+	"github.com/mira4sol/tx-pilot/internal/notify"
+	"github.com/mira4sol/tx-pilot/internal/queue"
+	txpilotrpc "github.com/mira4sol/tx-pilot/internal/rpc"
+	"github.com/mira4sol/tx-pilot/internal/scheduler"
+	"github.com/mira4sol/tx-pilot/internal/storage"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/internal/stream"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"github.com/riverqueue/river"
 	"go.uber.org/zap"
 )
@@ -30,7 +30,7 @@ import (
 type ControlPlane struct {
 	cfg        *config.Config
 	q          *dbgen.Queries
-	rpc        *aegisrpc.Client
+	rpc        *txpilotrpc.Client
 	jito       *bundle.JitoClient
 	tip        *bundle.TipResolver
 	tracker    *lifecycle.Tracker
@@ -49,7 +49,7 @@ type ControlPlane struct {
 type Dependencies struct {
 	Config     *config.Config
 	Queries    *dbgen.Queries
-	RPC        *aegisrpc.Client
+	RPC        *txpilotrpc.Client
 	Jito       *bundle.JitoClient
 	Tip        *bundle.TipResolver
 	Tracker    *lifecycle.Tracker
@@ -103,21 +103,21 @@ func (cp *ControlPlane) advisoryTipFloor(ctx context.Context) uint64 {
 	return uint64(tipRes.FloorLamports)
 }
 
-func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req aegis.SubmitTransactionRequest) (aegis.SubmitResponse, error) {
+func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req txpilot.SubmitTransactionRequest) (txpilot.SubmitResponse, error) {
 	if req.Transaction == "" {
-		return aegis.SubmitResponse{}, fmt.Errorf("transaction is required")
+		return txpilot.SubmitResponse{}, fmt.Errorf("transaction is required")
 	}
 	enc := tx.NormalizeEncoding(req.Encoding)
 	if enc == "" {
-		return aegis.SubmitResponse{}, fmt.Errorf("encoding must be base64 or base58")
+		return txpilot.SubmitResponse{}, fmt.Errorf("encoding must be base64 or base58")
 	}
 
 	sigs, err := tx.ExtractSignatures(req.Transaction, enc)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
-	txID := aegis.TransactionID("tx_" + uuid.NewString())
+	txID := txpilot.TransactionID("tx_" + uuid.NewString())
 	policyMode := req.PolicyMode
 	if policyMode == "" {
 		policyMode = cp.cfg.PolicyMode
@@ -125,11 +125,11 @@ func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req aegis.SubmitT
 
 	plan, err := cp.planTip(ctx, txID, policyMode, req.TipLamports)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
 	if len(sigs) == 0 {
-		return aegis.SubmitResponse{}, fmt.Errorf("transaction has no signature")
+		return txpilot.SubmitResponse{}, fmt.Errorf("transaction has no signature")
 	}
 
 	// A pre-signed client transaction cannot have a server tip added (that would
@@ -139,33 +139,33 @@ func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req aegis.SubmitT
 	sigsJSON, _ := json.Marshal(sigs)
 
 	_, err = cp.q.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-		ID: string(txID), Status: string(aegis.StatusPending), Stage: string(aegis.StageCreated),
+		ID: string(txID), Status: string(txpilot.StatusPending), Stage: string(txpilot.StageCreated),
 		PolicyMode: string(policyMode), TipLamports: int64(plan.Lamports),
 		RequestedTipLamports: int64(plan.Lamports), FloorLamports: int64(plan.FloorLamports),
 		TipSource: string(plan.Source), Memo: pgtype.Text{String: req.Memo, Valid: req.Memo != ""},
-		RetryAttempt: 0, SubmissionKind: string(aegis.SubmissionBundle),
+		RetryAttempt: 0, SubmissionKind: string(txpilot.SubmissionBundle),
 		Encoding: string(enc), Signatures: sigsJSON, TxCount: 1,
 		Signature: pgtype.Text{String: sigs[0], Valid: true},
 	})
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
 	cp.logger.Info("transaction created",
 		zap.String("transaction_id", string(txID)),
-		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.String("submission_kind", string(txpilot.SubmissionBundle)),
 		zap.Strings("signatures", sigs),
 	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
+		TransactionID: txID, Stage: txpilot.StageCreated, Timestamp: time.Now().UTC(),
 	})
 
 	clientBlockhash, _ := tx.ExtractBlockhash(req.Transaction, enc)
 	bundleID, err := cp.forwardClientTransaction(ctx, txID, req.Transaction, enc, sigs[0], clientBlockhash, plan)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
 	result := bundleID
@@ -173,28 +173,28 @@ func (cp *ControlPlane) SubmitTransaction(ctx context.Context, req aegis.SubmitT
 		result = sigs[0]
 	}
 
-	return aegis.SubmitResponse{
-		TransactionID: txID, SubmissionKind: aegis.SubmissionBundle,
-		Result: result, BundleID: aegis.BundleID(bundleID),
-		Signatures: sigs, Signature: aegis.Signature(sigs[0]),
-		Status: string(aegis.StatusSubmitted), Encoding: string(enc),
+	return txpilot.SubmitResponse{
+		TransactionID: txID, SubmissionKind: txpilot.SubmissionBundle,
+		Result: result, BundleID: txpilot.BundleID(bundleID),
+		Signatures: sigs, Signature: txpilot.Signature(sigs[0]),
+		Status: string(txpilot.StatusSubmitted), Encoding: string(enc),
 		TipFloorLamports: plan.FloorLamports, TipLamports: plan.Lamports, TipSource: plan.Source,
 	}, nil
 }
 
-func (cp *ControlPlane) SubmitBundle(ctx context.Context, req aegis.SubmitBundleRequest) (aegis.SubmitResponse, error) {
+func (cp *ControlPlane) SubmitBundle(ctx context.Context, req txpilot.SubmitBundleRequest) (txpilot.SubmitResponse, error) {
 	if len(req.Transactions) == 0 {
-		return aegis.SubmitResponse{}, fmt.Errorf("transactions are required")
+		return txpilot.SubmitResponse{}, fmt.Errorf("transactions are required")
 	}
-	if len(req.Transactions) >= aegis.MaxBundleTransactions {
-		return aegis.SubmitResponse{}, fmt.Errorf("bundle supports at most %d transactions including tip", aegis.MaxBundleTransactions-1)
+	if len(req.Transactions) >= txpilot.MaxBundleTransactions {
+		return txpilot.SubmitResponse{}, fmt.Errorf("bundle supports at most %d transactions including tip", txpilot.MaxBundleTransactions-1)
 	}
 	enc := tx.NormalizeEncoding(req.Encoding)
 	if enc == "" {
-		return aegis.SubmitResponse{}, fmt.Errorf("encoding must be base64 or base58")
+		return txpilot.SubmitResponse{}, fmt.Errorf("encoding must be base64 or base58")
 	}
 
-	txID := aegis.TransactionID("tx_" + uuid.NewString())
+	txID := txpilot.TransactionID("tx_" + uuid.NewString())
 	policyMode := req.PolicyMode
 	if policyMode == "" {
 		policyMode = cp.cfg.PolicyMode
@@ -202,47 +202,47 @@ func (cp *ControlPlane) SubmitBundle(ctx context.Context, req aegis.SubmitBundle
 
 	plan, err := cp.planTip(ctx, txID, policyMode, req.TipLamports)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
 	blockhash, err := cp.fetchProcessedBlockhash(ctx)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	tipEncoded, _, err := cp.buildSignedTipTx(ctx, plan.Lamports, blockhash, enc)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
 	allTxs := append(append([]string{}, req.Transactions...), tipEncoded)
 	sigs, err := tx.ExtractSignaturesFromBundle(allTxs, enc)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	sigsJSON, _ := json.Marshal(sigs)
 
 	_, err = cp.q.CreateTransaction(ctx, dbgen.CreateTransactionParams{
-		ID: string(txID), Status: string(aegis.StatusPending), Stage: string(aegis.StageCreated),
+		ID: string(txID), Status: string(txpilot.StatusPending), Stage: string(txpilot.StageCreated),
 		PolicyMode: string(policyMode), TipLamports: int64(plan.Lamports),
 		RequestedTipLamports: int64(plan.Lamports), FloorLamports: int64(plan.FloorLamports),
 		TipSource: string(plan.Source), Memo: pgtype.Text{String: req.Memo, Valid: req.Memo != ""},
-		RetryAttempt: 0, SubmissionKind: string(aegis.SubmissionBundle),
+		RetryAttempt: 0, SubmissionKind: string(txpilot.SubmissionBundle),
 		Encoding: string(enc), Signatures: sigsJSON, TxCount: int32(len(allTxs)),
 		Signature: pgtype.Text{String: sigs[0], Valid: len(sigs) > 0},
 	})
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 	storage.LogDBResult(cp.logger, "CreateTransaction", string(txID), nil)
 	cp.logger.Info("transaction created",
 		zap.String("transaction_id", string(txID)),
-		zap.String("submission_kind", string(aegis.SubmissionBundle)),
+		zap.String("submission_kind", string(txpilot.SubmissionBundle)),
 		zap.Strings("signatures", sigs),
 	)
 	cp.commitTipDecision(ctx, txID, &plan)
 
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Stage: aegis.StageCreated, Timestamp: time.Now().UTC(),
+		TransactionID: txID, Stage: txpilot.StageCreated, Timestamp: time.Now().UTC(),
 	})
 
 	clientBlockhash := ""
@@ -252,14 +252,14 @@ func (cp *ControlPlane) SubmitBundle(ctx context.Context, req aegis.SubmitBundle
 
 	bundleID, err := cp.forwardBundle(ctx, txID, allTxs, enc, sigs, clientBlockhash, plan)
 	if err != nil {
-		return aegis.SubmitResponse{}, err
+		return txpilot.SubmitResponse{}, err
 	}
 
-	return aegis.SubmitResponse{
-		TransactionID: txID, SubmissionKind: aegis.SubmissionBundle,
-		Result: bundleID, BundleID: aegis.BundleID(bundleID),
-		Signatures: sigs, Signature: aegis.Signature(sigs[0]),
-		Status: string(aegis.StatusSubmitted), Encoding: string(enc),
+	return txpilot.SubmitResponse{
+		TransactionID: txID, SubmissionKind: txpilot.SubmissionBundle,
+		Result: bundleID, BundleID: txpilot.BundleID(bundleID),
+		Signatures: sigs, Signature: txpilot.Signature(sigs[0]),
+		Status: string(txpilot.StatusSubmitted), Encoding: string(enc),
 		TipFloorLamports: plan.FloorLamports, TipLamports: plan.Lamports, TipSource: plan.Source,
 	}, nil
 }
@@ -269,7 +269,7 @@ func (cp *ControlPlane) SubmitBundle(ctx context.Context, req aegis.SubmitBundle
 // frequently acknowledges but never ingests multi-tx bundles). Per-transaction
 // errors are returned only when nothing could be sent; "already processed"
 // duplicates are expected and ignored by the caller.
-func (cp *ControlPlane) landViaRPC(ctx context.Context, encoded []string, enc aegis.Encoding) error {
+func (cp *ControlPlane) landViaRPC(ctx context.Context, encoded []string, enc txpilot.Encoding) error {
 	var firstErr error
 	sent := 0
 	for _, e := range encoded {
@@ -292,7 +292,7 @@ func (cp *ControlPlane) landViaRPC(ctx context.Context, encoded []string, enc ae
 // Jito returned a bundle id), flips the transaction to submitted, emits the
 // lifecycle event, tracks the signatures for the geyser stream, and enqueues the
 // time-bounded status poll. It is shared by every submission path.
-func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.TransactionID, bundleID string, sigs []string, blockhash string, plan tipPlan, submitPath string) (string, error) {
+func (cp *ControlPlane) markSubmitted(ctx context.Context, txID txpilot.TransactionID, bundleID string, sigs []string, blockhash string, plan tipPlan, submitPath string) (string, error) {
 	now := time.Now().UTC()
 	slot := cp.slotState.CurrentSlot()
 	if plan.TargetSlot > 0 {
@@ -321,7 +321,7 @@ func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.Transactio
 	}
 
 	_, err := cp.q.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
-		ID: string(txID), Status: string(aegis.StatusSubmitted), Stage: string(aegis.StageSubmitted),
+		ID: string(txID), Status: string(txpilot.StatusSubmitted), Stage: string(txpilot.StageSubmitted),
 		Signature:   pgtype.Text{String: primarySig, Valid: primarySig != ""},
 		BundleID:    pgtype.Text{String: bundleID, Valid: bundleID != ""},
 		TipLamports: int64(plan.Lamports), TargetSlot: pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
@@ -350,20 +350,20 @@ func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.Transactio
 	}
 
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Signature: aegis.Signature(primarySig),
-		BundleID: aegis.BundleID(bundleID), Stage: aegis.StageSubmitted,
-		Slot: aegis.Slot(slot), Timestamp: now,
+		TransactionID: txID, Signature: txpilot.Signature(primarySig),
+		BundleID: txpilot.BundleID(bundleID), Stage: txpilot.StageSubmitted,
+		Slot: txpilot.Slot(slot), Timestamp: now,
 		Metadata: map[string]any{"leader": leader, "tip_lamports": plan.Lamports, "submit_path": submitPath},
 	})
 
 	for _, sig := range sigs {
 		cp.sigTracker.Track(sig, stream.TrackedSignature{
-			TransactionID: txID, BundleID: aegis.BundleID(bundleID), Signature: aegis.Signature(sig),
+			TransactionID: txID, BundleID: txpilot.BundleID(bundleID), Signature: txpilot.Signature(sig),
 		})
 	}
 
 	cp.broadcastTransaction(txID)
-	cp.enqueueStatusPoll(txID, aegis.SubmissionBundle, bundleID, sigs, blockhash)
+	cp.enqueueStatusPoll(txID, txpilot.SubmissionBundle, bundleID, sigs, blockhash)
 	return bundleID, nil
 }
 
@@ -371,7 +371,7 @@ func (cp *ControlPlane) markSubmitted(ctx context.Context, txID aegis.Transactio
 // and mirrors the constituent transactions through the RPC so they still land if
 // the public block engine drops the bundle. Submission only fails when both
 // paths reject the transactions.
-func (cp *ControlPlane) forwardBundle(ctx context.Context, txID aegis.TransactionID, encoded []string, enc aegis.Encoding, sigs []string, blockhash string, plan tipPlan) (string, error) {
+func (cp *ControlPlane) forwardBundle(ctx context.Context, txID txpilot.TransactionID, encoded []string, enc txpilot.Encoding, sigs []string, blockhash string, plan tipPlan) (string, error) {
 	if cp.jito.TipAccountsCount() == 0 {
 		_ = cp.jito.LoadTipAccounts(ctx)
 	}
@@ -394,7 +394,7 @@ func (cp *ControlPlane) forwardBundle(ctx context.Context, txID aegis.Transactio
 // forwardClientTransaction submits a single client transaction through Jito's
 // sendTransaction endpoint (auto-bundled for MEV protection) and mirrors it
 // through the RPC so it lands reliably even when the client did not embed a tip.
-func (cp *ControlPlane) forwardClientTransaction(ctx context.Context, txID aegis.TransactionID, encoded string, enc aegis.Encoding, sig, blockhash string, plan tipPlan) (string, error) {
+func (cp *ControlPlane) forwardClientTransaction(ctx context.Context, txID txpilot.TransactionID, encoded string, enc txpilot.Encoding, sig, blockhash string, plan tipPlan) (string, error) {
 	if cp.jito.TipAccountsCount() == 0 {
 		_ = cp.jito.LoadTipAccounts(ctx)
 	}
@@ -423,7 +423,7 @@ func (cp *ControlPlane) forwardClientTransaction(ctx context.Context, txID aegis
 // through Jito's sendTransaction endpoint. Jito wraps it into a bundle and
 // returns the bundle id via the x-bundle-id header, so the lifecycle is still
 // tracked as a bundle while landing reliably on the public block engine.
-func (cp *ControlPlane) forwardOpsTransaction(ctx context.Context, txID aegis.TransactionID, encoded string, enc aegis.Encoding, sig, blockhash string, plan tipPlan) (string, error) {
+func (cp *ControlPlane) forwardOpsTransaction(ctx context.Context, txID txpilot.TransactionID, encoded string, enc txpilot.Encoding, sig, blockhash string, plan tipPlan) (string, error) {
 	if cp.jito.TipAccountsCount() == 0 {
 		_ = cp.jito.LoadTipAccounts(ctx)
 	}
@@ -441,14 +441,14 @@ func (cp *ControlPlane) forwardOpsTransaction(ctx context.Context, txID aegis.Tr
 	return cp.markSubmitted(ctx, txID, bundleID, []string{sig}, blockhash, plan, "jito_send_transaction")
 }
 
-func (cp *ControlPlane) handleSubmitFailure(ctx context.Context, txID aegis.TransactionID, bundleID string, err error) {
+func (cp *ControlPlane) handleSubmitFailure(ctx context.Context, txID txpilot.TransactionID, bundleID string, err error) {
 	cp.logger.Warn("jito submission failed", zap.String("transaction_id", string(txID)), zap.Error(err))
 	class := failure.Classify(err, failure.Evidence{RPCMessage: err.Error(), Slot: cp.slotState.CurrentSlot()})
 	cp.recordFailure(ctx, txID, bundleID, class)
 	now := time.Now().UTC()
 	slot := cp.slotState.CurrentSlot()
 	_, dbErr := cp.q.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
-		ID: string(txID), Status: string(aegis.StatusFailed), Stage: string(aegis.StageFailed),
+		ID: string(txID), Status: string(txpilot.StatusFailed), Stage: string(txpilot.StageFailed),
 		FailureKind:   pgtype.Text{String: string(class.Kind), Valid: true},
 		SubmittedSlot: pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 		Leader:        pgtype.Text{String: cp.slotState.LeaderAt(slot), Valid: true},
@@ -465,7 +465,7 @@ func (cp *ControlPlane) handleSubmitFailure(ctx context.Context, txID aegis.Tran
 		zap.Uint64("slot", slot),
 	)
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
-		TransactionID: txID, Stage: aegis.StageFailed, Slot: aegis.Slot(slot), Timestamp: now,
+		TransactionID: txID, Stage: txpilot.StageFailed, Slot: txpilot.Slot(slot), Timestamp: now,
 		Metadata: map[string]any{"error": err.Error(), "failure_kind": string(class.Kind)},
 	})
 	cp.broadcastTransaction(txID)
@@ -486,7 +486,7 @@ func (cp *ControlPlane) OnStreamSignature(ctx context.Context, signature string,
 	now := time.Now().UTC()
 	leader := cp.slotState.LeaderAt(slot)
 	_, err = cp.q.UpdateTransactionStatus(ctx, dbgen.UpdateTransactionStatusParams{
-		ID: string(entry.TransactionID), Status: string(aegis.StatusProcessing), Stage: string(aegis.StageProcessed),
+		ID: string(entry.TransactionID), Status: string(txpilot.StatusProcessing), Stage: string(txpilot.StageProcessed),
 		Signature:     pgtype.Text{String: signature, Valid: true},
 		ProcessedSlot: pgtype.Int8{Int64: int64(slot), Valid: slot > 0},
 		ProcessedAt:   pgtype.Timestamptz{Time: now, Valid: true},
@@ -508,14 +508,14 @@ func (cp *ControlPlane) OnStreamSignature(ctx context.Context, signature string,
 	}
 	cp.emitLifecycle(ctx, lifecycle.StageEvent{
 		TransactionID: entry.TransactionID, Signature: entry.Signature,
-		BundleID: entry.BundleID, Stage: aegis.StageProcessed,
-		Slot: aegis.Slot(slot), Timestamp: now,
+		BundleID: entry.BundleID, Stage: txpilot.StageProcessed,
+		Slot: txpilot.Slot(slot), Timestamp: now,
 		Metadata: map[string]any{"source": "geyser_stream"},
 	})
 	cp.broadcastTransaction(entry.TransactionID)
 }
 
-func (cp *ControlPlane) enqueueStatusPoll(txID aegis.TransactionID, kind aegis.SubmissionKind, bundleID string, sigs []string, blockhash string) {
+func (cp *ControlPlane) enqueueStatusPoll(txID txpilot.TransactionID, kind txpilot.SubmissionKind, bundleID string, sigs []string, blockhash string) {
 	if cp.river == nil {
 		cp.logger.Warn("status poll skipped: river client not configured",
 			zap.String("transaction_id", string(txID)),
@@ -552,7 +552,7 @@ func (cp *ControlPlane) enqueueStatusPoll(txID aegis.TransactionID, kind aegis.S
 	)
 }
 
-func (cp *ControlPlane) recordFailure(ctx context.Context, txID aegis.TransactionID, bundleID string, class failure.Classification) {
+func (cp *ControlPlane) recordFailure(ctx context.Context, txID txpilot.TransactionID, bundleID string, class failure.Classification) {
 	evidence, _ := json.Marshal(class.Evidence)
 	slot := cp.slotState.CurrentSlot()
 	_, err := cp.q.InsertFailure(ctx, dbgen.InsertFailureParams{
@@ -573,7 +573,7 @@ func (cp *ControlPlane) recordFailure(ctx context.Context, txID aegis.Transactio
 	}
 }
 
-func (cp *ControlPlane) broadcastTransaction(txID aegis.TransactionID) {
+func (cp *ControlPlane) broadcastTransaction(txID txpilot.TransactionID) {
 	if cp.notify == nil {
 		return
 	}
@@ -596,7 +596,7 @@ func (cp *ControlPlane) GetBundle(ctx context.Context, id string) (dbgen.Bundle,
 	return cp.q.GetBundle(ctx, id)
 }
 
-func (cp *ControlPlane) GetLatestBlockhash(ctx context.Context) (*aegisrpc.GetLatestBlockhashResponse, error) {
+func (cp *ControlPlane) GetLatestBlockhash(ctx context.Context) (*txpilotrpc.GetLatestBlockhashResponse, error) {
 	return cp.rpc.GetLatestBlockhash(ctx, "processed")
 }
 
@@ -629,7 +629,7 @@ type RecoveryBridge struct {
 	cp *ControlPlane
 }
 
-func (b *RecoveryBridge) Trigger(ctx context.Context, txID aegis.TransactionID, kind aegis.FailureKind, title, action string, rc queue.RecoveryContext) {
+func (b *RecoveryBridge) Trigger(ctx context.Context, txID txpilot.TransactionID, kind txpilot.FailureKind, title, action string, rc queue.RecoveryContext) {
 	b.cp.HandleFailureRecovery(ctx, txID, kind, title, action, recoveryContext{
 		TransactionID:  rc.TransactionID,
 		SubmissionKind: rc.SubmissionKind,

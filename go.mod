@@ -1,4 +1,4 @@
-module github.com/mira4sol/aegis
+module github.com/mira4sol/tx-pilot
 
 go 1.26.2
 

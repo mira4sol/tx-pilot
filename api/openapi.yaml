@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Aegis Control Plane API
+  title: TX Pilot Control Plane API
   version: 1.1.0
 paths:
   /v1/transactions:

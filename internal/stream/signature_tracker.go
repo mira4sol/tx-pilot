@@ -3,13 +3,13 @@ package stream
 import (
 	"sync"
 
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 type TrackedSignature struct {
-	TransactionID aegis.TransactionID
-	BundleID      aegis.BundleID
-	Signature     aegis.Signature
+	TransactionID txpilot.TransactionID
+	BundleID      txpilot.BundleID
+	Signature     txpilot.Signature
 }
 
 type SignatureTracker struct {

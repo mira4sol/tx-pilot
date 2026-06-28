@@ -5,8 +5,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
-	"github.com/mira4sol/aegis/internal/tx"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/tx"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
@@ -27,7 +27,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, enc := range []aegis.Encoding{aegis.EncodingBase64, aegis.EncodingBase58} {
+	for _, enc := range []txpilot.Encoding{txpilot.EncodingBase64, txpilot.EncodingBase58} {
 		encoded, err := tx.EncodeTransaction(stx, enc)
 		if err != nil {
 			t.Fatalf("encode %s: %v", enc, err)
@@ -43,10 +43,10 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 }
 
 func TestNormalizeEncoding(t *testing.T) {
-	if tx.NormalizeEncoding("base64") != aegis.EncodingBase64 {
+	if tx.NormalizeEncoding("base64") != txpilot.EncodingBase64 {
 		t.Fatal("expected base64")
 	}
-	if tx.NormalizeEncoding("base58") != aegis.EncodingBase58 {
+	if tx.NormalizeEncoding("base58") != txpilot.EncodingBase58 {
 		t.Fatal("expected base58")
 	}
 	if tx.NormalizeEncoding("hex") != "" {

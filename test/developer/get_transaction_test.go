@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mira4sol/aegis/test/helpers"
+	"github.com/mira4sol/tx-pilot/test/helpers"
 )
 
 func TestGetTransaction(t *testing.T) {

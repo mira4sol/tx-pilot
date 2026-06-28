@@ -13,7 +13,7 @@ type must be "tip_intelligence".
 action must include: kind ("set_tip"), tip_lamports (number), tip_delta_pct (optional number).`
 
 func buildDecisionPrompt(facts DecisionFacts) string {
-	return fmt.Sprintf(`You are Aegis, an autonomous Solana transaction SRE.
+	return fmt.Sprintf(`You are TX Pilot, an autonomous Solana transaction SRE.
 Analyze the failure and decide the next operational action.
 Facts:
 - transaction_id: %s
@@ -30,7 +30,7 @@ Facts:
 }
 
 func buildTipPrompt(facts TipFacts) string {
-	return fmt.Sprintf(`You are Aegis, an autonomous Solana transaction SRE optimizing Jito bundle tips.
+	return fmt.Sprintf(`You are TX Pilot, an autonomous Solana transaction SRE optimizing Jito bundle tips.
 Balance cost vs landing probability using live network facts.
 Facts:
 - transaction_id: %s

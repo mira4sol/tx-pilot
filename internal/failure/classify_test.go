@@ -4,20 +4,20 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mira4sol/aegis/internal/failure"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/failure"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 func TestClassifyExpiredBlockhash(t *testing.T) {
 	class := failure.Classify(errors.New("blockhash not found"), failure.Evidence{})
-	if class.Kind != aegis.FailureExpiredBlockhash {
+	if class.Kind != txpilot.FailureExpiredBlockhash {
 		t.Fatalf("got %s", class.Kind)
 	}
 }
 
 func TestClassifyBundleRejected(t *testing.T) {
 	class := failure.Classify(errors.New("bundle rejected by jito"), failure.Evidence{})
-	if class.Kind != aegis.FailureBundleRejected {
+	if class.Kind != txpilot.FailureBundleRejected {
 		t.Fatalf("got %s", class.Kind)
 	}
 }

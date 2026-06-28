@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 type TipFloor struct {
@@ -56,22 +56,22 @@ func (r *TipResolver) FetchTipFloor(ctx context.Context) (*TipFloor, error) {
 	return &floors[0], nil
 }
 
-func solToLamports(sol float64) aegis.Lamports {
+func solToLamports(sol float64) txpilot.Lamports {
 	if sol <= 0 {
 		return 0
 	}
-	return aegis.Lamports(math.Ceil(sol * 1_000_000_000))
+	return txpilot.Lamports(math.Ceil(sol * 1_000_000_000))
 }
 
-func percentileForMode(mode aegis.PolicyMode) float64 {
+func percentileForMode(mode txpilot.PolicyMode) float64 {
 	switch mode {
-	case aegis.ModeCheap:
+	case txpilot.ModeCheap:
 		return 0.25
-	case aegis.ModeSafe:
+	case txpilot.ModeSafe:
 		return 0.50
-	case aegis.ModeFast:
+	case txpilot.ModeFast:
 		return 0.75
-	case aegis.ModeAggressive:
+	case txpilot.ModeAggressive:
 		return 0.95
 	default:
 		return 0.50
@@ -125,7 +125,7 @@ func applyNetworkAdjustments(sol float64, congestion float64, leaderQuality stri
 type ResolveInput struct {
 	RequestedTip  *uint64
 	TipMode       string
-	PolicyMode    aegis.PolicyMode
+	PolicyMode    txpilot.PolicyMode
 	Congestion    float64
 	LeaderQuality string
 }
@@ -137,18 +137,18 @@ type RecommendInput struct {
 }
 
 type RecommendResult struct {
-	Resolution  aegis.TipResolution
+	Resolution  txpilot.TipResolution
 	Percentile  float64
 	Congestion  float64
 	FloorSOL    float64
 	SelectedSOL float64
-	PolicyMode  aegis.PolicyMode
+	PolicyMode  txpilot.PolicyMode
 }
 
-func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (aegis.TipResolution, error) {
+func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (txpilot.TipResolution, error) {
 	floor, err := r.FetchTipFloor(ctx)
 	if err != nil {
-		return aegis.TipResolution{}, err
+		return txpilot.TipResolution{}, err
 	}
 
 	mode := in.PolicyMode
@@ -158,39 +158,39 @@ func (r *TipResolver) ResolveTip(ctx context.Context, in ResolveInput) (aegis.Ti
 
 	dynamicFloorSOL := pickPercentile(floor, 0.25)
 	dynamicFloor := solToLamports(dynamicFloorSOL)
-	if dynamicFloor < aegis.Lamports(r.cfg.JitoMinTipLamports) {
-		dynamicFloor = aegis.Lamports(r.cfg.JitoMinTipLamports)
+	if dynamicFloor < txpilot.Lamports(r.cfg.JitoMinTipLamports) {
+		dynamicFloor = txpilot.Lamports(r.cfg.JitoMinTipLamports)
 	}
 
-	var requested aegis.Lamports
-	var source aegis.TipSource = aegis.TipSourceAuto
+	var requested txpilot.Lamports
+	var source txpilot.TipSource = txpilot.TipSourceAuto
 
 	switch {
 	case in.RequestedTip != nil:
-		requested = aegis.Lamports(*in.RequestedTip)
-		source = aegis.TipSourceCaller
-	case in.TipMode != "" && in.TipMode != string(aegis.TipModeAuto):
-		pm := aegis.PolicyMode(in.TipMode)
+		requested = txpilot.Lamports(*in.RequestedTip)
+		source = txpilot.TipSourceCaller
+	case in.TipMode != "" && in.TipMode != string(txpilot.TipModeAuto):
+		pm := txpilot.PolicyMode(in.TipMode)
 		autoSOL := pickPercentile(floor, percentileForMode(pm))
 		autoSOL = applyNetworkAdjustments(autoSOL, in.Congestion, in.LeaderQuality)
 		requested = solToLamports(autoSOL)
-		source = aegis.TipSourceAuto
+		source = txpilot.TipSourceAuto
 	default:
 		autoSOL := pickPercentile(floor, percentileForMode(mode))
 		autoSOL = applyNetworkAdjustments(autoSOL, in.Congestion, in.LeaderQuality)
 		requested = solToLamports(autoSOL)
-		source = aegis.TipSourceAuto
+		source = txpilot.TipSourceAuto
 	}
 
 	final := requested
 	if final < dynamicFloor {
 		final = dynamicFloor
-		if source == aegis.TipSourceCaller {
-			source = aegis.TipSourceFloorClamped
+		if source == txpilot.TipSourceCaller {
+			source = txpilot.TipSourceFloorClamped
 		}
 	}
 
-	return aegis.TipResolution{
+	return txpilot.TipResolution{
 		RequestedTipLamports: requested,
 		FloorLamports:        dynamicFloor,
 		FinalTipLamports:     final,

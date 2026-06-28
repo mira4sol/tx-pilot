@@ -1,12 +1,12 @@
-# Aegis Lifecycle Log Evidence
+# TX Pilot Lifecycle Log Evidence
 
 Live mainnet Jito submissions captured by `TestBountyLifecycleLog`. Every
 signature, bundle id and slot below is reproduced in full (untruncated) so
 each transaction can be independently verified on a Solana explorer.
 
-- Generated: 2026-06-27T16:35:34Z
+- Generated: 2026-06-28T00:40:24Z
 - Submissions: 10 (target 8 success / 2 failure)
-- Lifecycle log entries exported: 11
+- Lifecycle log entries exported: 21
 
 - Observed: 8 success / 2 failed
 
@@ -14,191 +14,191 @@ each transaction can be independently verified on a Solana explorer.
 
 | # | Status | sub slot | proc slot | conf slot | fin slot | Tip (lamports) | Failure |
 |---|--------|----------|-----------|-----------|----------|----------------|---------|
-| 1 | failed | 429273197 | 0 | 0 | 0 | 19310 | expired_blockhash (Blockhash expired before the bundle landed) |
-| 2 | failed | 429273221 | 0 | 0 | 0 | 15000 | expired_blockhash (Blockhash expired before the bundle landed) |
-| 3 | finalized | 429273229 | 429273241 | 429273241 | 429273241 | 15000 | - |
-| 4 | finalized | 429273224 | 429273265 | 429273265 | 429273265 | 15000 | - |
-| 5 | finalized | 429273277 | 429273288 | 429273288 | 429273288 | 60000 | - |
-| 6 | finalized | 429273306 | 429273320 | 429273320 | 429273320 | 51317 | - |
-| 7 | finalized | 429273302 | 429273341 | 429273341 | 429273341 | 50852 | - |
-| 8 | finalized | 429273324 | 429273372 | 429273372 | 429273372 | 180000 | - |
-| 9 | finalized | 429273384 | 429273396 | 429273396 | 429273396 | 200000 | - |
-| 10 | finalized | 429273407 | 429273420 | 429273420 | 429273420 | 155348 | - |
+| 1 | failed | 429345640 | 0 | 0 | 0 | 594758 | expired_blockhash (Blockhash expired before the bundle landed) |
+| 2 | failed | 429345666 | 0 | 0 | 0 | 650000 | expired_blockhash (Blockhash expired before the bundle landed) |
+| 3 | finalized | 429345672 | 429345681 | 429345681 | 429345681 | 650000 | - |
+| 4 | finalized | 429345700 | 429345709 | 429345709 | 429345709 | 600782 | - |
+| 5 | finalized | 429345696 | 429345739 | 429345739 | 429345739 | 133365 | - |
+| 6 | finalized | 429345719 | 429345760 | 429345760 | 429345760 | 133365 | - |
+| 7 | finalized | 429345747 | 429345787 | 0 | 429345787 | 80000 | - |
+| 8 | finalized | 429345843 | 429345854 | 429345854 | 429345854 | 80000 | - |
+| 9 | finalized | 429345866 | 429345875 | 429345875 | 429345875 | 120157 | - |
+| 10 | finalized | 429345893 | 429345904 | 429345904 | 429345904 | 126165 | - |
 
 ## Full transaction records
 
 ### 1. failed
 
-- transaction_id: `tx_01f6cf4b-7a5d-4c43-a8e4-b3f05731ac80`
-- bundle_id: `06f92cde6bd04b5283d69cd052a0e80bf8a1484f3d199dd1c7b1d065c51dbce0`
-- signature: `5ZBptHhuvd7QnwgU8gzfrw3wwhoHrNvHDoEHQuwFZkej9bJFLkjiyDrwFv5E8opZwmTyNuvai8ZHfMWZhg3uUn6R`
-- explorer: https://explorer.solana.com/tx/5ZBptHhuvd7QnwgU8gzfrw3wwhoHrNvHDoEHQuwFZkej9bJFLkjiyDrwFv5E8opZwmTyNuvai8ZHfMWZhg3uUn6R
-- solscan: https://solscan.io/tx/5ZBptHhuvd7QnwgU8gzfrw3wwhoHrNvHDoEHQuwFZkej9bJFLkjiyDrwFv5E8opZwmTyNuvai8ZHfMWZhg3uUn6R
+- transaction_id: `tx_a166eb41-3c2b-4ff1-91bb-65a8350dcc4a`
+- bundle_id: `63df60cb365f4e941cdfcdb99426c71bcdc308918f8af56a331684124a434285`
+- signature: `4kMNWWrMsbadCCvKGS8wZz2xBeYwVA34Y6uUpCSHzsbaHqDnin1XGHtEN9rTZC9JJQzNqMFU66s7Gg8S8Q96LmKw`
+- explorer: https://explorer.solana.com/tx/4kMNWWrMsbadCCvKGS8wZz2xBeYwVA34Y6uUpCSHzsbaHqDnin1XGHtEN9rTZC9JJQzNqMFU66s7Gg8S8Q96LmKw
+- solscan: https://solscan.io/tx/4kMNWWrMsbadCCvKGS8wZz2xBeYwVA34Y6uUpCSHzsbaHqDnin1XGHtEN9rTZC9JJQzNqMFU66s7Gg8S8Q96LmKw
 - inject_expired_blockhash: true
-- tip_lamports: 19310
-- slots: submitted=429273197 processed=0 confirmed=0 finalized=0
+- tip_lamports: 594758
+- slots: submitted=429345640 processed=0 confirmed=0 finalized=0
 - commitment_progression: created -> submitted -> failed
-- submitted_at: 2026-06-27T16:33:13Z
+- submitted_at: 2026-06-28T00:37:46Z
 - processed_at: -
 - confirmed_at: -
 - finalized_at: -
-- failed_at: 2026-06-27T16:33:16Z
+- failed_at: 2026-06-28T00:37:49Z
 - failure_kind: expired_blockhash
 - failure_title: Blockhash expired before the bundle landed
 
 ### 2. failed
 
-- transaction_id: `tx_0f8ec26f-971d-4a98-9dbd-b3c8fc820759`
-- bundle_id: `76d4db147f764f2fb0885edf878960c85398aff6d417ab9835ea4c83cd34503e`
-- signature: `286gN5xXyk7Lyt65Sw6nptjzoU3oYBg4op1jgEKrFA6NAPv2Umuao28GSwgrDydyTGgrzEvY7g8aS9qPyi3vRu69`
-- explorer: https://explorer.solana.com/tx/286gN5xXyk7Lyt65Sw6nptjzoU3oYBg4op1jgEKrFA6NAPv2Umuao28GSwgrDydyTGgrzEvY7g8aS9qPyi3vRu69
-- solscan: https://solscan.io/tx/286gN5xXyk7Lyt65Sw6nptjzoU3oYBg4op1jgEKrFA6NAPv2Umuao28GSwgrDydyTGgrzEvY7g8aS9qPyi3vRu69
+- transaction_id: `tx_6631d9d1-bdca-4830-a684-7ed3c6603ae9`
+- bundle_id: `0f3704af0989829bf898c96b5d2a54171f2022a67903b87dc68d1c74b1cd2cb6`
+- signature: `3GarTyd45UeQ63a2r4BLrexC3bFdiQ24p9tcJDTBKRYUPridW4meUtWXCKFd6Ciqhq75HupFK5LWDMM9pF7SUtnZ`
+- explorer: https://explorer.solana.com/tx/3GarTyd45UeQ63a2r4BLrexC3bFdiQ24p9tcJDTBKRYUPridW4meUtWXCKFd6Ciqhq75HupFK5LWDMM9pF7SUtnZ
+- solscan: https://solscan.io/tx/3GarTyd45UeQ63a2r4BLrexC3bFdiQ24p9tcJDTBKRYUPridW4meUtWXCKFd6Ciqhq75HupFK5LWDMM9pF7SUtnZ
 - inject_expired_blockhash: true
-- tip_lamports: 15000
-- slots: submitted=429273221 processed=0 confirmed=0 finalized=0
+- tip_lamports: 650000
+- slots: submitted=429345666 processed=0 confirmed=0 finalized=0
 - commitment_progression: created -> submitted -> failed
-- submitted_at: 2026-06-27T16:33:22Z
+- submitted_at: 2026-06-28T00:37:55Z
 - processed_at: -
 - confirmed_at: -
 - finalized_at: -
-- failed_at: 2026-06-27T16:33:25Z
+- failed_at: 2026-06-28T00:37:59Z
 - failure_kind: expired_blockhash
 - failure_title: Blockhash expired before the bundle landed
 
 ### 3. finalized
 
-- transaction_id: `tx_e3c9705f-063b-4550-b0de-e94f7104c080`
-- bundle_id: `67548a0323610e2a092d47d833401875f8ceb5c748fccccb560b88149f1d8528`
-- signature: `4VpZyWePkHaXNfsEkgQnf2s28q9Bq3tCfy93LRgUvt9qpXzVzxc22fr9DKyUYjDwNG4RBWP5Xx8LCQKtbFVR3NdY`
-- explorer: https://explorer.solana.com/tx/4VpZyWePkHaXNfsEkgQnf2s28q9Bq3tCfy93LRgUvt9qpXzVzxc22fr9DKyUYjDwNG4RBWP5Xx8LCQKtbFVR3NdY
-- solscan: https://solscan.io/tx/4VpZyWePkHaXNfsEkgQnf2s28q9Bq3tCfy93LRgUvt9qpXzVzxc22fr9DKyUYjDwNG4RBWP5Xx8LCQKtbFVR3NdY
+- transaction_id: `tx_85b57a8b-aa8c-4ff2-ab57-035be1b9fcfc`
+- bundle_id: `4012355dca326ba41bf13c584bf238214f54733a82e45b47ace5c48dd70be5a1`
+- signature: `4vTxfp83jL6cgQzL5jaJkUjj4opCaymRa9dBk1rKsCnLkNEYRoyCKjLjJ7Y1DzM478fM9wMwH1RCiiEh435oiRyr`
+- explorer: https://explorer.solana.com/tx/4vTxfp83jL6cgQzL5jaJkUjj4opCaymRa9dBk1rKsCnLkNEYRoyCKjLjJ7Y1DzM478fM9wMwH1RCiiEh435oiRyr
+- solscan: https://solscan.io/tx/4vTxfp83jL6cgQzL5jaJkUjj4opCaymRa9dBk1rKsCnLkNEYRoyCKjLjJ7Y1DzM478fM9wMwH1RCiiEh435oiRyr
 - inject_expired_blockhash: false
-- tip_lamports: 15000
-- slots: submitted=429273229 processed=429273241 confirmed=429273241 finalized=429273241
+- tip_lamports: 650000
+- slots: submitted=429345672 processed=429345681 confirmed=429345681 finalized=429345681
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:33:32Z
-- processed_at: 2026-06-27T16:33:35Z
-- confirmed_at: 2026-06-27T16:33:45Z
-- finalized_at: 2026-06-27T16:33:50Z
+- submitted_at: 2026-06-28T00:38:04Z
+- processed_at: 2026-06-28T00:38:09Z
+- confirmed_at: 2026-06-28T00:38:14Z
+- finalized_at: 2026-06-28T00:38:19Z
 - failed_at: -
 
 ### 4. finalized
 
-- transaction_id: `tx_9e7700a4-aaa8-4091-b283-8930311401e1`
-- bundle_id: `598cabb039c9884694e5c8ec81041291492cb63cbcf57523c0819dca8538e1ce`
-- signature: `3RKQJfTax66jRo1SWZYUyjF4jECcyUFwVezPDPWL8SeuiaYtn5XSGktjP3BiKTtXNJjrFi3zS7WJHkS9BKTTYdHa`
-- explorer: https://explorer.solana.com/tx/3RKQJfTax66jRo1SWZYUyjF4jECcyUFwVezPDPWL8SeuiaYtn5XSGktjP3BiKTtXNJjrFi3zS7WJHkS9BKTTYdHa
-- solscan: https://solscan.io/tx/3RKQJfTax66jRo1SWZYUyjF4jECcyUFwVezPDPWL8SeuiaYtn5XSGktjP3BiKTtXNJjrFi3zS7WJHkS9BKTTYdHa
+- transaction_id: `tx_40e35906-80de-4d38-8d14-eb10d1fb5e28`
+- bundle_id: `662785d7892e921c4e938ee87b08e893c5f843884a1a93bbdb9ca1801e17a164`
+- signature: `493gYgxGnmnDV7s1ApekFBYVHVHpvDukWnq5qX3yuvowYrd6fQWb1gxdPZhyoHg8EtxqQGQCB3We42s6vppaK1aL`
+- explorer: https://explorer.solana.com/tx/493gYgxGnmnDV7s1ApekFBYVHVHpvDukWnq5qX3yuvowYrd6fQWb1gxdPZhyoHg8EtxqQGQCB3We42s6vppaK1aL
+- solscan: https://solscan.io/tx/493gYgxGnmnDV7s1ApekFBYVHVHpvDukWnq5qX3yuvowYrd6fQWb1gxdPZhyoHg8EtxqQGQCB3We42s6vppaK1aL
 - inject_expired_blockhash: false
-- tip_lamports: 15000
-- slots: submitted=429273224 processed=429273265 confirmed=429273265 finalized=429273265
+- tip_lamports: 600782
+- slots: submitted=429345700 processed=429345709 confirmed=429345709 finalized=429345709
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:33:41Z
-- processed_at: 2026-06-27T16:33:45Z
-- confirmed_at: 2026-06-27T16:33:55Z
-- finalized_at: 2026-06-27T16:34:00Z
+- submitted_at: 2026-06-28T00:38:14Z
+- processed_at: 2026-06-28T00:38:19Z
+- confirmed_at: 2026-06-28T00:38:24Z
+- finalized_at: 2026-06-28T00:38:29Z
 - failed_at: -
 
 ### 5. finalized
 
-- transaction_id: `tx_5904c5c7-d42f-40ac-961a-bf3560e5b60b`
-- bundle_id: `38189ff31713ccb04c601ed99ae06a081d3fecdc8f7dc1b2422d589955ea8564`
-- signature: `5EHn8DeqXjVeg4DarZ7sWiabP33Z9kkPNBQXh8EtLmwK86vNqrEQCAvNFQhwAq4ZuxFfiuyD1fMwAQCp5hoYHE9n`
-- explorer: https://explorer.solana.com/tx/5EHn8DeqXjVeg4DarZ7sWiabP33Z9kkPNBQXh8EtLmwK86vNqrEQCAvNFQhwAq4ZuxFfiuyD1fMwAQCp5hoYHE9n
-- solscan: https://solscan.io/tx/5EHn8DeqXjVeg4DarZ7sWiabP33Z9kkPNBQXh8EtLmwK86vNqrEQCAvNFQhwAq4ZuxFfiuyD1fMwAQCp5hoYHE9n
+- transaction_id: `tx_d5f4e96c-6ebf-4598-9b35-d8131bc2b5ba`
+- bundle_id: `abb83aefedc53ce7f2cb732a16c2c3138357c276cf14e6de12a72222847bab6a`
+- signature: `5U6rPJzhLTuBqg4prz2RSi32aGg2GhgkBY4yNnKqrTF6fMYSZWRTr4MVHDTPpEpTw3EjPGwuSuyFRrnyoXKV4nD3`
+- explorer: https://explorer.solana.com/tx/5U6rPJzhLTuBqg4prz2RSi32aGg2GhgkBY4yNnKqrTF6fMYSZWRTr4MVHDTPpEpTw3EjPGwuSuyFRrnyoXKV4nD3
+- solscan: https://solscan.io/tx/5U6rPJzhLTuBqg4prz2RSi32aGg2GhgkBY4yNnKqrTF6fMYSZWRTr4MVHDTPpEpTw3EjPGwuSuyFRrnyoXKV4nD3
 - inject_expired_blockhash: false
-- tip_lamports: 60000
-- slots: submitted=429273277 processed=429273288 confirmed=429273288 finalized=429273288
+- tip_lamports: 133365
+- slots: submitted=429345696 processed=429345739 confirmed=429345739 finalized=429345739
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:33:51Z
-- processed_at: 2026-06-27T16:33:55Z
-- confirmed_at: 2026-06-27T16:34:00Z
-- finalized_at: 2026-06-27T16:34:05Z
+- submitted_at: 2026-06-28T00:38:25Z
+- processed_at: 2026-06-28T00:38:29Z
+- confirmed_at: 2026-06-28T00:38:39Z
+- finalized_at: 2026-06-28T00:38:44Z
 - failed_at: -
 
 ### 6. finalized
 
-- transaction_id: `tx_15a8eead-544e-48dd-ae26-2279585f3079`
-- bundle_id: `a7b3ebd5a8ec611feb9fa55131255e6f57a5e89936196fd0a7124ebffbbd0a0a`
-- signature: `3w9UKhSKaGaQq9xP5XGJ67Y657eA7qD6CX5y2ui9u3UcJYtDdEZhdWX4pTkS9NRKaB3QGSpsg5pYErCGSDoPWcNt`
-- explorer: https://explorer.solana.com/tx/3w9UKhSKaGaQq9xP5XGJ67Y657eA7qD6CX5y2ui9u3UcJYtDdEZhdWX4pTkS9NRKaB3QGSpsg5pYErCGSDoPWcNt
-- solscan: https://solscan.io/tx/3w9UKhSKaGaQq9xP5XGJ67Y657eA7qD6CX5y2ui9u3UcJYtDdEZhdWX4pTkS9NRKaB3QGSpsg5pYErCGSDoPWcNt
+- transaction_id: `tx_a54f9938-3d0f-41ff-afc2-47c548e0c7de`
+- bundle_id: `d2dc56682915c4e28ca5ac780f776275b2c64ade34d2be91b5f75b235f135c66`
+- signature: `4cipEuzcYECUfGWsmBFA9t7UB2r8FGNpyPX1Z8ef7AU3b5tQjc4dYCPY1REzxNgJof6PZU4dPoiUEjuxZLDM3TMB`
+- explorer: https://explorer.solana.com/tx/4cipEuzcYECUfGWsmBFA9t7UB2r8FGNpyPX1Z8ef7AU3b5tQjc4dYCPY1REzxNgJof6PZU4dPoiUEjuxZLDM3TMB
+- solscan: https://solscan.io/tx/4cipEuzcYECUfGWsmBFA9t7UB2r8FGNpyPX1Z8ef7AU3b5tQjc4dYCPY1REzxNgJof6PZU4dPoiUEjuxZLDM3TMB
 - inject_expired_blockhash: false
-- tip_lamports: 51317
-- slots: submitted=429273306 processed=429273320 confirmed=429273320 finalized=429273320
+- tip_lamports: 133365
+- slots: submitted=429345719 processed=429345760 confirmed=429345760 finalized=429345760
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:34:04Z
-- processed_at: 2026-06-27T16:34:06Z
-- confirmed_at: 2026-06-27T16:34:15Z
-- finalized_at: 2026-06-27T16:34:20Z
+- submitted_at: 2026-06-28T00:38:34Z
+- processed_at: 2026-06-28T00:38:39Z
+- confirmed_at: 2026-06-28T00:38:44Z
+- finalized_at: 2026-06-28T00:39:07Z
 - failed_at: -
 
 ### 7. finalized
 
-- transaction_id: `tx_8f29c1a0-3c57-4a60-823e-bbc160c06d1c`
-- bundle_id: `28b95d857a7063c514fa6551bf8bd1cdb421360888d1287a6bbef28073f1736e`
-- signature: `Fjxk6BDQeFHH539WpeqkYqYRDFzeziUW4cJVQ8np5jNzXw9GpuCut7hoCz1LE5sbTmnnQqfNtR2wQHWxpiQtXC4`
-- explorer: https://explorer.solana.com/tx/Fjxk6BDQeFHH539WpeqkYqYRDFzeziUW4cJVQ8np5jNzXw9GpuCut7hoCz1LE5sbTmnnQqfNtR2wQHWxpiQtXC4
-- solscan: https://solscan.io/tx/Fjxk6BDQeFHH539WpeqkYqYRDFzeziUW4cJVQ8np5jNzXw9GpuCut7hoCz1LE5sbTmnnQqfNtR2wQHWxpiQtXC4
+- transaction_id: `tx_0279c9e0-7add-41ee-8fcd-c674b5ccff63`
+- bundle_id: `a220319e12472d6f24a4d0e7b8e15b450ff2512bdb6acce1e0cbb61322279fe0`
+- signature: `26MngwPjvKmuC84zeSm5ZCbuMQFKdypMafuXMKJUNUhP9kEvbF5id1aQkwXLpMNx3Z7KhufR9TmY3u3aFVrCiAcV`
+- explorer: https://explorer.solana.com/tx/26MngwPjvKmuC84zeSm5ZCbuMQFKdypMafuXMKJUNUhP9kEvbF5id1aQkwXLpMNx3Z7KhufR9TmY3u3aFVrCiAcV
+- solscan: https://solscan.io/tx/26MngwPjvKmuC84zeSm5ZCbuMQFKdypMafuXMKJUNUhP9kEvbF5id1aQkwXLpMNx3Z7KhufR9TmY3u3aFVrCiAcV
 - inject_expired_blockhash: false
-- tip_lamports: 50852
-- slots: submitted=429273302 processed=429273341 confirmed=429273341 finalized=429273341
-- commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:34:12Z
-- processed_at: 2026-06-27T16:34:15Z
-- confirmed_at: 2026-06-27T16:34:25Z
-- finalized_at: 2026-06-27T16:34:30Z
+- tip_lamports: 80000
+- slots: submitted=429345747 processed=429345787 confirmed=0 finalized=429345787
+- commitment_progression: created -> submitted -> processed -> finalized
+- submitted_at: 2026-06-28T00:38:46Z
+- processed_at: 2026-06-28T00:39:07Z
+- confirmed_at: -
+- finalized_at: 2026-06-28T00:39:07Z
 - failed_at: -
 
 ### 8. finalized
 
-- transaction_id: `tx_baf5d052-2264-4145-9358-b3911a59b34e`
-- bundle_id: `8504e08dd5441d5b5f6c34e177cb2491ae6dade28ef921c77bcc35368e589b35`
-- signature: `5HenCr5d3P6dvP9rTX98V6VpmXAGsELkvGgvCX9tZjWWM73jjsLwugbA2nH6yiThk69YNddxWDBoGxXwy3MXaCwz`
-- explorer: https://explorer.solana.com/tx/5HenCr5d3P6dvP9rTX98V6VpmXAGsELkvGgvCX9tZjWWM73jjsLwugbA2nH6yiThk69YNddxWDBoGxXwy3MXaCwz
-- solscan: https://solscan.io/tx/5HenCr5d3P6dvP9rTX98V6VpmXAGsELkvGgvCX9tZjWWM73jjsLwugbA2nH6yiThk69YNddxWDBoGxXwy3MXaCwz
+- transaction_id: `tx_76d4ddd2-c37f-45b9-ae40-80f264d64bf4`
+- bundle_id: `bf982be337fa1ee4d5cbdb22c643d25dca9613f34e62b4db324ccc9b2d3f4c67`
+- signature: `5eEfR4D8FKg1Ur1MRCHFy93qTxJYBekDuBKqcd9SKPHijU8MLhE4ZyYZLYFEGSnFMBWYWt2s4oiTR8ELCrZX636y`
+- explorer: https://explorer.solana.com/tx/5eEfR4D8FKg1Ur1MRCHFy93qTxJYBekDuBKqcd9SKPHijU8MLhE4ZyYZLYFEGSnFMBWYWt2s4oiTR8ELCrZX636y
+- solscan: https://solscan.io/tx/5eEfR4D8FKg1Ur1MRCHFy93qTxJYBekDuBKqcd9SKPHijU8MLhE4ZyYZLYFEGSnFMBWYWt2s4oiTR8ELCrZX636y
 - inject_expired_blockhash: false
-- tip_lamports: 180000
-- slots: submitted=429273324 processed=429273372 confirmed=429273372 finalized=429273372
+- tip_lamports: 80000
+- slots: submitted=429345843 processed=429345854 confirmed=429345854 finalized=429345854
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:34:24Z
-- processed_at: 2026-06-27T16:34:27Z
-- confirmed_at: 2026-06-27T16:34:35Z
-- finalized_at: 2026-06-27T16:34:40Z
+- submitted_at: 2026-06-28T00:39:14Z
+- processed_at: 2026-06-28T00:39:17Z
+- confirmed_at: 2026-06-28T00:39:27Z
+- finalized_at: 2026-06-28T00:39:32Z
 - failed_at: -
 
 ### 9. finalized
 
-- transaction_id: `tx_cb0efca0-1edc-4972-ba80-fe1ddb170c76`
-- bundle_id: `f09c1b51f3707d628688327a37440861558ff4dc041d0b62988dea3205b73560`
-- signature: `5hddnC5rH8HUhKb2wnppqUSRy44ox5YBw12KaAi369SE22aNPYhoNS46GpEWGiPvoQ7XrRmdHqLLf5PgC14XL93v`
-- explorer: https://explorer.solana.com/tx/5hddnC5rH8HUhKb2wnppqUSRy44ox5YBw12KaAi369SE22aNPYhoNS46GpEWGiPvoQ7XrRmdHqLLf5PgC14XL93v
-- solscan: https://solscan.io/tx/5hddnC5rH8HUhKb2wnppqUSRy44ox5YBw12KaAi369SE22aNPYhoNS46GpEWGiPvoQ7XrRmdHqLLf5PgC14XL93v
+- transaction_id: `tx_16e43e90-3579-4c9e-b2eb-0b1eb5525b39`
+- bundle_id: `d1fe3d624cc67af7e19711c3b28955075e8993460fe9b1375d84c72935928ce9`
+- signature: `51LkdKoebk8vPLEp25LTucseepM3km1cB9XqttHCHhibCEnQgaNVSd4GPsjhZQpNwChbFFxp6sFJ1Lyhjic1hHws`
+- explorer: https://explorer.solana.com/tx/51LkdKoebk8vPLEp25LTucseepM3km1cB9XqttHCHhibCEnQgaNVSd4GPsjhZQpNwChbFFxp6sFJ1Lyhjic1hHws
+- solscan: https://solscan.io/tx/51LkdKoebk8vPLEp25LTucseepM3km1cB9XqttHCHhibCEnQgaNVSd4GPsjhZQpNwChbFFxp6sFJ1Lyhjic1hHws
 - inject_expired_blockhash: false
-- tip_lamports: 200000
-- slots: submitted=429273384 processed=429273396 confirmed=429273396 finalized=429273396
+- tip_lamports: 120157
+- slots: submitted=429345866 processed=429345875 confirmed=429345875 finalized=429345875
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:34:33Z
-- processed_at: 2026-06-27T16:34:36Z
-- confirmed_at: 2026-06-27T16:34:45Z
-- finalized_at: 2026-06-27T16:34:50Z
+- submitted_at: 2026-06-28T00:39:22Z
+- processed_at: 2026-06-28T00:39:27Z
+- confirmed_at: 2026-06-28T00:39:32Z
+- finalized_at: 2026-06-28T00:39:37Z
 - failed_at: -
 
 ### 10. finalized
 
-- transaction_id: `tx_94006627-f6a0-4322-9ff6-a2f48acf5573`
-- bundle_id: `55d84e0e721db1a3d9d2f14158ca5ff55e33ebc9a310f87e281dd120b8c647eb`
-- signature: `66QaXPbouXXUkYaC2JayiWa9kKBz66Xagh6XhhqswfwqcT7HDY449DiWiwtp8tVSWMo6aBQSCYzyDCiGZJcVKjeF`
-- explorer: https://explorer.solana.com/tx/66QaXPbouXXUkYaC2JayiWa9kKBz66Xagh6XhhqswfwqcT7HDY449DiWiwtp8tVSWMo6aBQSCYzyDCiGZJcVKjeF
-- solscan: https://solscan.io/tx/66QaXPbouXXUkYaC2JayiWa9kKBz66Xagh6XhhqswfwqcT7HDY449DiWiwtp8tVSWMo6aBQSCYzyDCiGZJcVKjeF
+- transaction_id: `tx_0b370b70-da12-4270-bad1-59c99281a5f9`
+- bundle_id: `b1925823c1ad73a8385694ea75bb7a72564e64e3c6078351e2d296e4c53c572d`
+- signature: `5BQhVBHcoUFDhjTYspuXYCpLd8FhFdmoriJCun8tW7o3HxU5h1bGaszBt5rRYRzY6h7mBqk3xGwQsgLPeU7scVVg`
+- explorer: https://explorer.solana.com/tx/5BQhVBHcoUFDhjTYspuXYCpLd8FhFdmoriJCun8tW7o3HxU5h1bGaszBt5rRYRzY6h7mBqk3xGwQsgLPeU7scVVg
+- solscan: https://solscan.io/tx/5BQhVBHcoUFDhjTYspuXYCpLd8FhFdmoriJCun8tW7o3HxU5h1bGaszBt5rRYRzY6h7mBqk3xGwQsgLPeU7scVVg
 - inject_expired_blockhash: false
-- tip_lamports: 155348
-- slots: submitted=429273407 processed=429273420 confirmed=429273420 finalized=429273420
+- tip_lamports: 126165
+- slots: submitted=429345893 processed=429345904 confirmed=429345904 finalized=429345904
 - commitment_progression: created -> submitted -> processed -> confirmed -> finalized
-- submitted_at: 2026-06-27T16:34:43Z
-- processed_at: 2026-06-27T16:34:46Z
-- confirmed_at: 2026-06-27T16:34:55Z
-- finalized_at: 2026-06-27T16:35:00Z
+- submitted_at: 2026-06-28T00:39:33Z
+- processed_at: 2026-06-28T00:39:37Z
+- confirmed_at: 2026-06-28T00:39:47Z
+- finalized_at: 2026-06-28T00:39:52Z
 - failed_at: -
 
 ## Explorer verification

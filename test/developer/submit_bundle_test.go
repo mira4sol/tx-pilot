@@ -5,8 +5,8 @@ package developer_test
 import (
 	"testing"
 
-	"github.com/mira4sol/aegis/pkg/aegis"
-	"github.com/mira4sol/aegis/test/helpers"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
+	"github.com/mira4sol/tx-pilot/test/helpers"
 )
 
 func TestSubmitBundle(t *testing.T) {
@@ -18,7 +18,7 @@ func TestSubmitBundle(t *testing.T) {
 
 	resp := helpers.SubmitSignedBundle(t, []string{transferTx, tipTx}, "integration-bundle-test")
 
-	if resp.SubmissionKind != aegis.SubmissionBundle {
+	if resp.SubmissionKind != txpilot.SubmissionBundle {
 		t.Fatalf("expected submission_kind bundle, got %s", resp.SubmissionKind)
 	}
 	if resp.Result == "" {

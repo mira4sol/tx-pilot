@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/mira4sol/aegis/test/helpers"
+	"github.com/mira4sol/tx-pilot/test/helpers"
 )
 
 func TestWebSocketSubscribe(t *testing.T) {

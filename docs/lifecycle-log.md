@@ -27,7 +27,7 @@ curl -s http://localhost:8080/v1/transactions/{id}/timeline | jq .
 The live integration test writes explorer-verifiable evidence to [lifecycle-log-evidence.md](./lifecycle-log-evidence.md):
 
 ```bash
-AEGIS_RUN_BOUNTY_LOG=1 go test -tags=integration -v -timeout=20m ./test/lifecycle/...
+TX_PILOT_RUN_BOUNTY_LOG=1 go test -tags=integration -v -timeout=20m ./test/lifecycle/...
 ```
 
 This submits 10 real server-signed Jito transactions via `POST /v1/ops/submit`
@@ -58,10 +58,10 @@ on-chain signature status (the source of truth) plus Jito's
 
 ## Automated bounty run (mainnet)
 
-Requires a funded ops keypair at `AEGIS_KEYPAIR_PATH` and a running Aegis server:
+Requires a funded ops keypair at `TX_PILOT_KEYPAIR_PATH` and a running TX Pilot server:
 
 ```bash
-go run ./cmd/aegis-lifecycle-runner -count 10 -failures 2
+go run ./cmd/tx-pilot-lifecycle-runner -count 10 -failures 2
 ```
 
 This executes 10 server-signed bundle submissions via `POST /v1/ops/submit`, with the first 2 using `inject_expired_blockhash` to demonstrate autonomous AI recovery (detect → reason → refresh blockhash → recalc tip → resubmit).
@@ -79,7 +79,13 @@ curl -X POST http://localhost:8080/v1/ops/submit -H 'Content-Type: application/j
 curl -X POST http://localhost:8080/v1/ops/submit -H 'Content-Type: application/json' \
   -d '{"memo":"demo-expired","inject_expired_blockhash":true}'
 
-# Client tx with dynamic tip (auto-wrapped bundle)
+# Client tx with advisory dynamic tip (forwarded unchanged)
+
 curl -X POST http://localhost:8080/v1/transactions -H 'Content-Type: application/json' \
-  -d '{"transaction":"<signed-tx-base64>","tip_lamports":50000}'
+  -d '{"transaction":"<signed-tx-base64>","policy_mode":"SAFE"}'
+
+# Client bundle with server-signed tip appended
+
+curl -X POST http://localhost:8080/v1/bundles -H 'Content-Type: application/json' \
+  -d '{"transactions":["<signed-tx-base64>"],"policy_mode":"SAFE","tip_lamports":50000}'
 ```

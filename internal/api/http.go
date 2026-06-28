@@ -6,11 +6,11 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mira4sol/aegis/internal/app"
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/internal/dashboard"
-	"github.com/mira4sol/aegis/internal/notify"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/app"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/dashboard"
+	"github.com/mira4sol/tx-pilot/internal/notify"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +71,7 @@ func NewRouter(deps Dependencies) http.Handler {
 }
 
 func (deps Dependencies) submitTransaction(w http.ResponseWriter, r *http.Request) {
-	var req aegis.SubmitTransactionRequest
+	var req txpilot.SubmitTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -85,7 +85,7 @@ func (deps Dependencies) submitTransaction(w http.ResponseWriter, r *http.Reques
 }
 
 func (deps Dependencies) submitBundle(w http.ResponseWriter, r *http.Request) {
-	var req aegis.SubmitBundleRequest
+	var req txpilot.SubmitBundleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -99,7 +99,7 @@ func (deps Dependencies) submitBundle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (deps Dependencies) submitOps(w http.ResponseWriter, r *http.Request) {
-	var req aegis.SubmitOpsRequest
+	var req txpilot.SubmitOpsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

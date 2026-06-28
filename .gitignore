@@ -1,7 +1,7 @@
 .env
 keypair.json
-aegis-test-keypair.json
-aegis
+tx-pilot-test-keypair.json
+tx-pilot
 .DS_Store
 .cursor
 

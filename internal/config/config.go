@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 type Config struct {
@@ -15,7 +15,7 @@ type Config struct {
 	Cluster              string
 	HTTPAddr             string
 	WebDir               string
-	PolicyMode           aegis.PolicyMode
+	PolicyMode           txpilot.PolicyMode
 	PublicAPIBaseURL     string
 	SolanaRPCURL         string
 	SolanaWSURL          string
@@ -42,12 +42,12 @@ func Load(envFile string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Env:                  getEnv("AEGIS_ENV", "development"),
-		Cluster:              getEnv("AEGIS_CLUSTER", "mainnet-beta"),
-		HTTPAddr:             getEnv("AEGIS_HTTP_ADDR", ":8080"),
-		WebDir:               getEnv("AEGIS_WEB_DIR", "web/dist"),
-		PolicyMode:           aegis.PolicyMode(strings.ToUpper(getEnv("AEGIS_POLICY_MODE", "SAFE"))),
-		PublicAPIBaseURL:     getEnv("AEGIS_PUBLIC_API_BASE_URL", "http://localhost:8080"),
+		Env:                  getEnv("TX_PILOT_ENV", "development"),
+		Cluster:              getEnv("TX_PILOT_CLUSTER", "mainnet-beta"),
+		HTTPAddr:             getEnv("TX_PILOT_HTTP_ADDR", ":8080"),
+		WebDir:               getEnv("TX_PILOT_WEB_DIR", "web/dist"),
+		PolicyMode:           txpilot.PolicyMode(strings.ToUpper(getEnv("TX_PILOT_POLICY_MODE", "SAFE"))),
+		PublicAPIBaseURL:     getEnv("TX_PILOT_PUBLIC_API_BASE_URL", "http://localhost:8080"),
 		SolanaRPCURL:         os.Getenv("SOLANA_RPC_URL"),
 		SolanaWSURL:          os.Getenv("SOLANA_WS_URL"),
 		SolanaRPCAPIKey:      os.Getenv("SOLANA_RPC_API_KEY"),
@@ -61,10 +61,10 @@ func Load(envFile string) (*Config, error) {
 		JitoBlockEngineURL:   getEnv("JITO_BLOCK_ENGINE_URL", "https://mainnet.block-engine.jito.wtf/api/v1"),
 		JitoTipFloorURL:      getEnv("JITO_TIP_FLOOR_URL", "https://bundles.jito.wtf/api/v1/bundles/tip_floor"),
 		JitoMinTipLamports:   getEnvUint64("JITO_MIN_TIP_LAMPORTS", 1000),
-		KeypairPath:          os.Getenv("AEGIS_KEYPAIR_PATH"),
-		WebhooksEnabled:      getEnvBool("AEGIS_WEBHOOKS_ENABLED", false),
-		WebhookSigningSecret: os.Getenv("AEGIS_WEBHOOK_SIGNING_SECRET"),
-		WebhookURL:           os.Getenv("AEGIS_WEBHOOK_URL"),
+		KeypairPath:          os.Getenv("TX_PILOT_KEYPAIR_PATH"),
+		WebhooksEnabled:      getEnvBool("TX_PILOT_WEBHOOKS_ENABLED", false),
+		WebhookSigningSecret: os.Getenv("TX_PILOT_WEBHOOK_SIGNING_SECRET"),
+		WebhookURL:           os.Getenv("TX_PILOT_WEBHOOK_URL"),
 	}
 
 	return cfg, Validate(cfg)
@@ -119,15 +119,15 @@ func Validate(cfg *Config) error {
 		missing = append(missing, "OPENAI_API_KEY")
 	}
 	if cfg.KeypairPath == "" {
-		missing = append(missing, "AEGIS_KEYPAIR_PATH")
+		missing = append(missing, "TX_PILOT_KEYPAIR_PATH")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))
 	}
 	switch cfg.PolicyMode {
-	case aegis.ModeFast, aegis.ModeSafe, aegis.ModeCheap, aegis.ModeAggressive:
+	case txpilot.ModeFast, txpilot.ModeSafe, txpilot.ModeCheap, txpilot.ModeAggressive:
 	default:
-		return fmt.Errorf("invalid AEGIS_POLICY_MODE: %s", cfg.PolicyMode)
+		return fmt.Errorf("invalid TX_PILOT_POLICY_MODE: %s", cfg.PolicyMode)
 	}
 	return nil
 }

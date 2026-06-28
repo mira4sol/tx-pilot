@@ -3,8 +3,8 @@ package scheduler
 import (
 	"time"
 
-	"github.com/mira4sol/aegis/internal/stream"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/stream"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 type Decision struct {
@@ -12,19 +12,19 @@ type Decision struct {
 	DelaySlots uint64
 	TargetSlot uint64
 	Leader     string
-	PolicyMode aegis.PolicyMode
+	PolicyMode txpilot.PolicyMode
 	Reason     string
 }
 
 type Scheduler struct {
-	policyMode aegis.PolicyMode
+	policyMode txpilot.PolicyMode
 }
 
-func New(policyMode aegis.PolicyMode) *Scheduler {
+func New(policyMode txpilot.PolicyMode) *Scheduler {
 	return &Scheduler{policyMode: policyMode}
 }
 
-func (s *Scheduler) Evaluate(slotState *stream.SlotState, mode aegis.PolicyMode) Decision {
+func (s *Scheduler) Evaluate(slotState *stream.SlotState, mode txpilot.PolicyMode) Decision {
 	currentSlot, _, slots, leaders, _, _ := slotState.Snapshot()
 	if mode == "" {
 		mode = s.policyMode
@@ -41,7 +41,7 @@ func (s *Scheduler) Evaluate(slotState *stream.SlotState, mode aegis.PolicyMode)
 	for _, entry := range slots {
 		if entry.Skipped && entry.Slot+1 == currentSlot {
 			switch mode {
-			case aegis.ModeSafe, aegis.ModeCheap:
+			case txpilot.ModeSafe, txpilot.ModeCheap:
 				decision.SubmitNow = false
 				decision.DelaySlots = 1
 				decision.TargetSlot = currentSlot + 1
@@ -50,7 +50,7 @@ func (s *Scheduler) Evaluate(slotState *stream.SlotState, mode aegis.PolicyMode)
 		}
 	}
 
-	if mode == aegis.ModeAggressive {
+	if mode == txpilot.ModeAggressive {
 		decision.SubmitNow = true
 		decision.Reason = "aggressive mode submits immediately"
 	}

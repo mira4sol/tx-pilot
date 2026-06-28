@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mira4sol/aegis/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/config"
 )
 
 type WebhookClient struct {
@@ -61,13 +61,13 @@ func (c *WebhookClient) Deliver(ctx context.Context, eventType, idempotencyKey s
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Aegis-Idempotency-Key", idempotencyKey)
-	req.Header.Set("X-Aegis-Event-Type", eventType)
+	req.Header.Set("X-Tx-Pilot-Idempotency-Key", idempotencyKey)
+	req.Header.Set("X-Tx-Pilot-Event-Type", eventType)
 	if c.cfg.WebhookSigningSecret != "" {
 		mac := hmac.New(sha256.New, []byte(c.cfg.WebhookSigningSecret))
 		mac.Write(body)
 		sig := hex.EncodeToString(mac.Sum(nil))
-		req.Header.Set("X-Aegis-Signature", "sha256="+sig)
+		req.Header.Set("X-Tx-Pilot-Signature", "sha256="+sig)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

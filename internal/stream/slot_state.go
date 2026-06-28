@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mira4sol/aegis/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/config"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

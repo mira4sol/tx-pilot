@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mira4sol/aegis/pkg/aegis"
-	"github.com/mira4sol/aegis/test/helpers"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
+	"github.com/mira4sol/tx-pilot/test/helpers"
 )
 
 const (
@@ -46,8 +46,8 @@ type submissionResult struct {
 }
 
 func TestBountyLifecycleLog(t *testing.T) {
-	if os.Getenv("AEGIS_RUN_BOUNTY_LOG") != "1" {
-		t.Skip("set AEGIS_RUN_BOUNTY_LOG=1 to run live 10-bundle bounty evidence test")
+	if os.Getenv("TX_PILOT_RUN_BOUNTY_LOG") != "1" {
+		t.Skip("set TX_PILOT_RUN_BOUNTY_LOG=1 to run live 10-bundle bounty evidence test")
 	}
 
 	results := make([]submissionResult, 0, totalSubmissions)
@@ -102,7 +102,7 @@ func TestBountyLifecycleLog(t *testing.T) {
 	helpers.AssertStatus(t, status, http.StatusOK, body)
 
 	var logResp struct {
-		Entries []aegis.LifecycleLogEntry `json:"entries"`
+		Entries []txpilot.LifecycleLogEntry `json:"entries"`
 		Count   int                       `json:"count"`
 	}
 	if err := json.Unmarshal(body, &logResp); err != nil {
@@ -135,17 +135,17 @@ func TestBountyLifecycleLog(t *testing.T) {
 	}
 }
 
-func submitOps(t *testing.T, memo string, injectExpired bool) aegis.SubmitResponse {
+func submitOps(t *testing.T, memo string, injectExpired bool) txpilot.SubmitResponse {
 	t.Helper()
-	payload := aegis.SubmitOpsRequest{
+	payload := txpilot.SubmitOpsRequest{
 		Memo:                   memo,
 		Lamports:               1,
-		PolicyMode:             aegis.ModeAggressive,
+		PolicyMode:             txpilot.ModeAggressive,
 		InjectExpiredBlockhash: injectExpired,
 	}
 	status, body := helpers.POSTJSON(t, "/v1/ops/submit", payload)
 	helpers.AssertStatus(t, status, http.StatusAccepted, body)
-	var resp aegis.SubmitResponse
+	var resp txpilot.SubmitResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		t.Fatalf("unmarshal ops response: %v", err)
 	}
@@ -177,8 +177,8 @@ func pollOpsTransaction(t *testing.T, txID string, timeout time.Duration) map[st
 	return last
 }
 
-func enrichFromLifecycleLog(results []submissionResult, entries []aegis.LifecycleLogEntry) {
-	byID := map[string]aegis.LifecycleLogEntry{}
+func enrichFromLifecycleLog(results []submissionResult, entries []txpilot.LifecycleLogEntry) {
+	byID := map[string]txpilot.LifecycleLogEntry{}
 	for _, e := range entries {
 		byID[string(e.TransactionID)] = e
 	}
@@ -212,7 +212,7 @@ func enrichFromLifecycleLog(results []submissionResult, entries []aegis.Lifecycl
 
 func writeEvidenceMarkdown(path string, results []submissionResult, logCount int) error {
 	var b strings.Builder
-	b.WriteString("# Aegis Lifecycle Log Evidence\n\n")
+	b.WriteString("# TX Pilot Lifecycle Log Evidence\n\n")
 	b.WriteString("Live mainnet Jito submissions captured by `TestBountyLifecycleLog`. Every\n")
 	b.WriteString("signature, bundle id and slot below is reproduced in full (untruncated) so\n")
 	b.WriteString("each transaction can be independently verified on a Solana explorer.\n\n")

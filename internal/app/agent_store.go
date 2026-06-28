@@ -6,14 +6,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/mira4sol/aegis/internal/agent"
-	"github.com/mira4sol/aegis/internal/storage"
-	"github.com/mira4sol/aegis/internal/storage/dbgen"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/agent"
+	"github.com/mira4sol/tx-pilot/internal/storage"
+	"github.com/mira4sol/tx-pilot/internal/storage/dbgen"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 	"go.uber.org/zap"
 )
 
-func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.TransactionID, decision agent.Decision) (string, error) {
+func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID txpilot.TransactionID, decision agent.Decision) (string, error) {
 	decisionID := "dec_" + uuid.NewString()
 	inputs, _ := json.Marshal(decision.Inputs)
 	action, _ := json.Marshal(decision.Action)
@@ -60,7 +60,7 @@ func (cp *ControlPlane) persistAgentDecision(ctx context.Context, txID aegis.Tra
 	return decisionID, nil
 }
 
-func (cp *ControlPlane) persistRecoveryAction(ctx context.Context, txID aegis.TransactionID, decisionID, label, status string) string {
+func (cp *ControlPlane) persistRecoveryAction(ctx context.Context, txID txpilot.TransactionID, decisionID, label, status string) string {
 	recoveryID := "rec_" + uuid.NewString()
 	_, err := cp.q.InsertRecoveryAction(ctx, dbgen.InsertRecoveryActionParams{
 		ID: recoveryID, TransactionID: string(txID),

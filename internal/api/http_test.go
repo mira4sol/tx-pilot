@@ -5,11 +5,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mira4sol/aegis/internal/api"
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/internal/dashboard"
-	"github.com/mira4sol/aegis/internal/notify"
-	"github.com/mira4sol/aegis/internal/stream"
+	"github.com/mira4sol/tx-pilot/internal/api"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/internal/dashboard"
+	"github.com/mira4sol/tx-pilot/internal/notify"
+	"github.com/mira4sol/tx-pilot/internal/stream"
 	"go.uber.org/zap"
 )
 

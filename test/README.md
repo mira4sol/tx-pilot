@@ -1,10 +1,10 @@
-# Aegis Integration Tests
+# TX Pilot Integration Tests
 
-Live HTTP/WebSocket tests against a running Aegis server. Developer tests build and sign **real** Solana transactions client-side, then POST encoded payloads to Aegis for Jito forwarding.
+Live HTTP/WebSocket tests against a running TX Pilot server. Developer tests build and sign **real** Solana transactions client-side, then POST encoded payloads to TX Pilot for Jito forwarding.
 
 ## Who signs the transaction?
 
-`test/helpers` loads `aegis-test-keypair.json`, fetches blockhash from `GET /v1/blockhash`, builds a system transfer (1 lamport), signs locally with solana-go, and POSTs the encoded tx to:
+`test/helpers` loads `tx-pilot-test-keypair.json`, fetches blockhash from `GET /v1/blockhash`, builds a system transfer (1 lamport), signs locally with solana-go, and POSTs the encoded tx to:
 
 - `POST /v1/transactions` — single tx
 - `POST /v1/bundles` — transfer + tip tx bundle
@@ -13,7 +13,7 @@ Live HTTP/WebSocket tests against a running Aegis server. Developer tests build 
 
 | Item       | Value                                                |
 | ---------- | ---------------------------------------------------- |
-| File       | `aegis-test-keypair.json` (gitignored, project root) |
+| File       | `tx-pilot-test-keypair.json` (gitignored, project root) |
 | Public key | `Hgj2HKri7Re9RWucnhoETSnNqmBMmQCLZpuigHbfMhj`        |
 | Generate   | `make test-keypair`                                  |
 | Fund       | ~0.05 SOL on mainnet-beta                            |
@@ -39,7 +39,7 @@ Bundle tests add a second tx tipping a Jito tip account (1000 lamports minimum).
 make test-integration-developer
 make test-integration-dashboard
 make test-integration-ws
-make test-integration-lifecycle   # requires AEGIS_RUN_BOUNTY_LOG=1, live mainnet server
+make test-integration-lifecycle   # requires TX_PILOT_RUN_BOUNTY_LOG=1, live mainnet server
 make test-integration
 ```
 
@@ -47,4 +47,4 @@ make test-integration
 
 | Env                   | Default                 | Description  |
 | --------------------- | ----------------------- | ------------ |
-| `AEGIS_TEST_BASE_URL` | `http://localhost:8080` | API base URL |
+| `TX_PILOT_TEST_BASE_URL` | `http://localhost:8080` | API base URL |

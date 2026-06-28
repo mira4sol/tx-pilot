@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
-go run cmd/aegis-cli/main.go -memo "aegis-normal-$(date +%s)"
+go run cmd/tx-pilot-cli/main.go -memo "tx-pilot-normal-$(date +%s)"

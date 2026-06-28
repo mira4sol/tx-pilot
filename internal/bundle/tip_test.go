@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mira4sol/aegis/internal/bundle"
-	"github.com/mira4sol/aegis/internal/config"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/internal/bundle"
+	"github.com/mira4sol/tx-pilot/internal/config"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 func TestResolveTipFloorClamp(t *testing.T) {
@@ -22,7 +22,7 @@ func TestResolveTipFloorClamp(t *testing.T) {
 	defer server.Close()
 
 	cfg := &config.Config{
-		PolicyMode:         aegis.ModeSafe,
+		PolicyMode:         txpilot.ModeSafe,
 		JitoTipFloorURL:    server.URL,
 		JitoMinTipLamports: 1000,
 	}
@@ -35,7 +35,7 @@ func TestResolveTipFloorClamp(t *testing.T) {
 	if res.FinalTipLamports < 1000 {
 		t.Fatalf("expected floor clamp >= 1000, got %d", res.FinalTipLamports)
 	}
-	if res.TipSource != aegis.TipSourceFloorClamped {
+	if res.TipSource != txpilot.TipSourceFloorClamped {
 		t.Fatalf("expected floor_clamped, got %s", res.TipSource)
 	}
 }
@@ -46,7 +46,7 @@ func TestResolveTipCallerAboveFloor(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{PolicyMode: aegis.ModeSafe, JitoTipFloorURL: server.URL, JitoMinTipLamports: 1000}
+	cfg := &config.Config{PolicyMode: txpilot.ModeSafe, JitoTipFloorURL: server.URL, JitoMinTipLamports: 1000}
 	resolver := bundle.NewTipResolver(cfg)
 	high := uint64(50000)
 	res, err := resolver.ResolveTip(context.Background(), bundle.ResolveInput{RequestedTip: &high})
@@ -66,7 +66,7 @@ func TestNetworkMultiplierCongestion(t *testing.T) {
 	}))
 	defer server.Close()
 
-	cfg := &config.Config{PolicyMode: aegis.ModeSafe, JitoTipFloorURL: server.URL, JitoMinTipLamports: 1000}
+	cfg := &config.Config{PolicyMode: txpilot.ModeSafe, JitoTipFloorURL: server.URL, JitoMinTipLamports: 1000}
 	resolver := bundle.NewTipResolver(cfg)
 
 	tests := []struct {
@@ -84,7 +84,7 @@ func TestNetworkMultiplierCongestion(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			res, err := resolver.ResolveTip(context.Background(), bundle.ResolveInput{
-				PolicyMode: aegis.ModeSafe, Congestion: tc.congestion, LeaderQuality: tc.leader,
+				PolicyMode: txpilot.ModeSafe, Congestion: tc.congestion, LeaderQuality: tc.leader,
 			})
 			if err != nil {
 				t.Fatal(err)

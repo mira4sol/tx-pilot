@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/mira4sol/aegis/pkg/aegis"
+	"github.com/mira4sol/tx-pilot/pkg/txpilot"
 )
 
 type JitoClient struct {
@@ -170,9 +170,9 @@ type SendTransactionResult struct {
 	BundleID  string
 }
 
-func (c *JitoClient) SendTransaction(ctx context.Context, encodedTx string, encoding aegis.Encoding) (*SendTransactionResult, error) {
+func (c *JitoClient) SendTransaction(ctx context.Context, encodedTx string, encoding txpilot.Encoding) (*SendTransactionResult, error) {
 	if encoding == "" {
-		encoding = aegis.EncodingBase64
+		encoding = txpilot.EncodingBase64
 	}
 	var signature string
 	headers, err := c.call(ctx, "sendTransaction", []any{encodedTx, map[string]string{"encoding": string(encoding)}}, &signature)
@@ -185,9 +185,9 @@ func (c *JitoClient) SendTransaction(ctx context.Context, encodedTx string, enco
 	}, nil
 }
 
-func (c *JitoClient) SendBundle(ctx context.Context, encodedTxs []string, encoding aegis.Encoding) (string, error) {
+func (c *JitoClient) SendBundle(ctx context.Context, encodedTxs []string, encoding txpilot.Encoding) (string, error) {
 	if encoding == "" {
-		encoding = aegis.EncodingBase64
+		encoding = txpilot.EncodingBase64
 	}
 	var bundleID string
 	_, err := c.call(ctx, "sendBundle", []any{encodedTxs, map[string]string{"encoding": string(encoding)}}, &bundleID)
