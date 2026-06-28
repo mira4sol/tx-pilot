@@ -4,6 +4,8 @@
 
 Built for trading bots, consumer apps, and any workload pushing high transaction volume. TX Pilot handles submission, tip planning, lifecycle tracking, failure classification, and AI-assisted recovery so you can see _why_ a transaction landed or failed instead of guessing from a signature alone.
 
+**Documentation:** [TX Pilot on GitBook](https://mira4sol.gitbook.io/tx-pilot) — architecture, data flow, failure handling, AI agent, and dashboard.
+
 ![TX Pilot architecture](tx-pilot-architecture.svg)
 
 ---
@@ -140,6 +142,30 @@ make dev                      # API + dashboard at http://localhost:8080
 | **Ops keypair** | `TX_PILOT_KEYPAIR_PATH=./tx-pilot-test-keypair.json`   |
 | **Used for**    | Bundle tip signing, ops submit, autonomous recovery    |
 | **Fund**        | ~0.05 SOL on mainnet-beta for demos and lifecycle runs |
+
+---
+
+## Operations dashboard
+
+The dashboard ships with the TX Pilot server. No separate frontend process. After `make dev`, open **http://localhost:8080** in your browser.
+
+The Go API serves the React app from `web/dist` on the same port as `/v1/*` REST and `/v1/ws` WebSocket. River job inspector lives at **http://localhost:8080/riverui**.
+
+![TX Pilot operations dashboard](docs/images/tx-pilot-dashboard.png)
+
+| Panel | What you see |
+| ----- | ------------ |
+| **Network ticker** | Current slot, TPS, congestion, net health, leader, next Jito leader, bundle rate |
+| **Lifecycle pipeline** | Stage counts (Created → Submitted → Processed → Confirmed → Finalized), avg end-to-end time, success rate |
+| **Live slot feed** | Recent slots with leader pubkey and Jito-enabled flag |
+| **Transaction stream** | Per-tx signature, slot, bundle ID, tip, status, latency |
+| **Lifecycle trace** | Drill-down audit trail for a selected transaction |
+| **AI decision feed** | Tip adjustments and reasoning (e.g. congestion-driven tip raise) |
+| **Landing probability** | Score with factor breakdown (tip, leader stability, competition, network readiness) |
+| **Failure analysis** | Classified failures with recommended recovery strategy |
+| **Charts** | Confirmation latency, congestion, bundle success, tip vs success rate, failure frequency |
+
+Live updates come over WebSocket (`/v1/ws`); the server broadcasts network and pipeline snapshots every 1s. Full data contract: [docs/dashboard-data.md](docs/dashboard-data.md). Dashboard architecture: [GitBook](https://mira4sol.gitbook.io/tx-pilot).
 
 ---
 
@@ -417,8 +443,10 @@ and cross-reference the confirmed/finalized slot recorded here.
 
 | Doc                                                              | Read this for                                                     |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [TX Pilot on GitBook](https://mira4sol.gitbook.io/tx-pilot)      | Architecture design document (components, data flow, infrastructure, failure handling, AI, dashboard) |
 | [docs/setup.md](docs/setup.md)                                   | Install, `.env` variables, Docker Postgres, migrations, first run |
-| [docs/architecture.md](docs/architecture.md)                     | Components, tip planning pipeline, signing model, AI boundaries   |
+| [docs/architecture-design.md](docs/architecture-design.md)       | GitBook source (repo copy of the architecture design document)    |
+| [docs/architecture.md](docs/architecture.md)                     | Shorter internal architecture reference                           |
 | [docs/operations.md](docs/operations.md)                         | Submit flows, curl examples, CLI helper, polling                  |
 | [docs/dashboard-data.md](docs/dashboard-data.md)                 | REST and WebSocket contract for the ops dashboard                 |
 | [docs/lifecycle-log.md](docs/lifecycle-log.md)                   | Lifecycle export format and bounty evidence collection            |

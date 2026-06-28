@@ -2,7 +2,33 @@
 
 This guide walks through installing dependencies, configuring credentials, starting infrastructure, and running the TX Pilot API server and dashboard.
 
-For API usage after the server is up, see [Operations Runbook](operations.md). For architecture and data contracts, see [Architecture](architecture.md) and [Dashboard data contract](dashboard-data.md).
+For API usage after the server is up, see [Operations Runbook](operations.md). For architecture and data contracts, see [Architecture design (GitBook)](https://mira4sol.gitbook.io/tx-pilot), [architecture-design.md](architecture-design.md), and [Dashboard data contract](dashboard-data.md).
+
+---
+
+## Build everything with one command
+
+After dependencies are installed and `.env` is configured, **`make build` is all you need to prepare a runnable release**:
+
+```bash
+make build
+```
+
+This single target:
+
+1. **Builds the dashboard** — `pnpm build` in `web/`, output to `web/dist/` (same-origin API URLs baked in)
+2. **Builds the Go binary** — compiles `cmd/tx-pilot/main.go` to **`./tx-pilot`** in the project root
+
+You get one binary that serves the API, WebSocket streams, embedded dashboard, and River UI on `:8080`. No separate frontend server in production.
+
+```bash
+./tx-pilot
+# or: make run
+```
+
+Open **http://localhost:8080/** for the dashboard.
+
+`make build-all` is an alias for `make build`. Use `make build-go` or `make build-web` only when you need to rebuild one half.
 
 ---
 
@@ -11,7 +37,7 @@ For API usage after the server is up, see [Operations Runbook](operations.md). F
 | Component | Role | Default URL |
 |-----------|------|-------------|
 | **TX Pilot API** | Transaction control plane, lifecycle tracking, dashboard REST/WS | `http://localhost:8080` |
-| **Dashboard (web)** | Real-time ops UI (React + Vite) | Dev: `http://localhost:5173` · Prod: same origin as API (`/`) |
+| **Dashboard (web)** | Real-time ops UI (React + Vite) | After `make build`: **http://localhost:8080/** (served by `./tx-pilot`) · Dev hot reload: `http://localhost:5173` |
 | **Postgres** | Persistence, River job queue | `localhost:5432` |
 | **River UI** | Background job inspector | `http://localhost:8080/riverui` |
 
@@ -217,6 +243,39 @@ make sqlc
 
 ## 5. Running the server
 
+### Production — `make build` then run
+
+This is the normal path once setup is done. **`make build` prepares everything**: frontend assets in `web/dist` plus the `./tx-pilot` binary.
+
+```bash
+make build
+```
+
+What runs under the hood:
+
+| Step | Makefile target | Output |
+|------|-----------------|--------|
+| 1 | `build-web` | `web/dist/` (dashboard static files, same-origin `/v1` and `/v1/ws`) |
+| 2 | `build-go` | `./tx-pilot` (Go binary at project root) |
+
+Run the server:
+
+```bash
+make run
+# or: ./tx-pilot
+```
+
+Open **http://localhost:8080/** for the dashboard. API routes are under `/v1/*`. River UI at **http://localhost:8080/riverui**.
+
+Static files are read from `TX_PILOT_WEB_DIR` (default `web/dist`). If `index.html` is missing, the API still runs but the UI is not mounted — run `make build` (or at least `make build-web`) first.
+
+To rebuild only one part:
+
+```bash
+make build-go    # Go binary only (dashboard unchanged)
+make build-web   # Dashboard only (binary unchanged)
+```
+
 ### Development — API only
 
 ```bash
@@ -252,39 +311,7 @@ make dev-web
 
 Open **http://localhost:5173**. The dashboard polls `GET /v1/dashboard/snapshot` and connects to `ws://localhost:8080/v1/ws` (via `VITE_API_URL`).
 
-### Production — single binary + embedded static UI
-
-Build frontend and Go binary together:
-
-```bash
-make build
-# or: make build-all
-```
-
-This runs `build-web` (same-origin API config) then `build-go`, producing `./tx-pilot`.
-
-Run:
-
-```bash
-make run
-# or: ./tx-pilot
-```
-
-Open **http://localhost:8080/** for the dashboard. API routes remain under `/v1/*`.
-
-To build Go without rebuilding the web app:
-
-```bash
-make build-go
-```
-
-To build only the web app:
-
-```bash
-make build-web
-```
-
-Static files are read from `TX_PILOT_WEB_DIR` (default `web/dist`). If `index.html` is missing, the API still runs; the UI is simply not mounted.
+Use this only while editing frontend code. For a deployable artifact or to run without Node at runtime, use **`make build`** instead.
 
 ---
 
@@ -339,7 +366,7 @@ See [test/README.md](../test/README.md) for wallet funding, transfer targets, an
 
 | Command | Description |
 |---------|-------------|
-| `make build` | Build web (`web/dist`) + Go binary (`./tx-pilot`) |
+| `make build` | **Prepare everything**: build dashboard (`web/dist`) + Go binary (`./tx-pilot`) |
 | `make build-all` | Alias for `make build` |
 | `make build-go` | Go binary only |
 | `make build-web` | Frontend production build (same-origin API) |
@@ -433,16 +460,16 @@ Change `TX_PILOT_HTTP_ADDR=:8081` in `.env`, or stop the process on `:8080` / `:
 
 ## Quick start (copy-paste)
 
-Minimal path from zero to running API + dashboard UI:
+Minimal path from zero to a built binary with dashboard embedded:
 
 ```bash
-cp .env.example .env          # edit credentials; fix DATABASE_URL → .../tx-pilot
+cp .env.example .env          # edit credentials; DATABASE_URL → .../txpilot
 make test-keypair             # fund the printed pubkey on mainnet
 make docker-up
 export $(grep -v '^#' .env | xargs)
 make migrate-up
-make build                    # web + binary
-./tx-pilot                       # http://localhost:8080/
+make build                    # dashboard (web/dist) + binary (./tx-pilot) — one command
+./tx-pilot                    # http://localhost:8080/ — API + dashboard + River UI
 ```
 
 For frontend hot reload during development, use `make dev` + `make dev-web` instead of `make build`.
