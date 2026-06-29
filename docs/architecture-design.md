@@ -48,7 +48,7 @@ On Bitcoin and Ethereum, transactions sit in a public mempool. Validators or min
                Block
 ```
 
-Solana was built for throughput. Instead of a global mempool gossip model, **Gulf Stream** forwards transactions directly toward the **TPU** (Transaction Processing Unit) of the upcoming **leader** validator. Leaders rotate every **slot (~400 ms)**. You are racing the clock against slot boundaries and leader schedules, not waiting in a public queue.
+Solana was built for throughput. Instead of a global mempool gossip model, **Gulf Stream** forwards transactions directly toward the **TPU** (Transaction Processing Unit) of the upcoming **leader** validator. Leaders rotate every 4 **slot (~1.6 s)**. You are racing the clock against slot boundaries and leader schedules, not waiting in a public queue.
 
 ```
   Solana (simplified)

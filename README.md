@@ -26,14 +26,14 @@ On Bitcoin and Ethereum, transactions sit in a **public mempool**. Validators or
                Block
 ```
 
-Solana was built for throughput. Instead of a global mempool gossip model, **Gulf Stream** forwards transactions directly toward the **TPU** (Transaction Processing Unit) of the upcoming **leader** validator. Leaders rotate every **slot (~400 ms)**. You are racing the clock against slot boundaries and leader schedules, not waiting in a public queue.
+Solana was built for throughput. Instead of a global mempool gossip model, **Gulf Stream** forwards transactions directly toward the **TPU** (Transaction Processing Unit) of the upcoming **leader** validator. Leaders rotate every 4 **slots (~1.6 s)**. You are racing the clock against slot boundaries and leader schedules, not waiting in a public queue.
 
 ```
   Solana (simplified)
 
   Wallet ──► RPC / TPU path ──► Current leader's TPU
                                       │
-                               ~400 ms slot
+                               ~4 slots (~1.6 ms)
                                       │
                                       ▼
                                Leader builds block
@@ -153,17 +153,17 @@ The Go API serves the React app from `web/dist` on the same port as `/v1/*` REST
 
 ![TX Pilot operations dashboard](docs/images/tx-pilot-dashboard.png)
 
-| Panel | What you see |
-| ----- | ------------ |
-| **Network ticker** | Current slot, TPS, congestion, net health, leader, next Jito leader, bundle rate |
-| **Lifecycle pipeline** | Stage counts (Created → Submitted → Processed → Confirmed → Finalized), avg end-to-end time, success rate |
-| **Live slot feed** | Recent slots with leader pubkey and Jito-enabled flag |
-| **Transaction stream** | Per-tx signature, slot, bundle ID, tip, status, latency |
-| **Lifecycle trace** | Drill-down audit trail for a selected transaction |
-| **AI decision feed** | Tip adjustments and reasoning (e.g. congestion-driven tip raise) |
-| **Landing probability** | Score with factor breakdown (tip, leader stability, competition, network readiness) |
-| **Failure analysis** | Classified failures with recommended recovery strategy |
-| **Charts** | Confirmation latency, congestion, bundle success, tip vs success rate, failure frequency |
+| Panel                   | What you see                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Network ticker**      | Current slot, TPS, congestion, net health, leader, next Jito leader, bundle rate                          |
+| **Lifecycle pipeline**  | Stage counts (Created → Submitted → Processed → Confirmed → Finalized), avg end-to-end time, success rate |
+| **Live slot feed**      | Recent slots with leader pubkey and Jito-enabled flag                                                     |
+| **Transaction stream**  | Per-tx signature, slot, bundle ID, tip, status, latency                                                   |
+| **Lifecycle trace**     | Drill-down audit trail for a selected transaction                                                         |
+| **AI decision feed**    | Tip adjustments and reasoning (e.g. congestion-driven tip raise)                                          |
+| **Landing probability** | Score with factor breakdown (tip, leader stability, competition, network readiness)                       |
+| **Failure analysis**    | Classified failures with recommended recovery strategy                                                    |
+| **Charts**              | Confirmation latency, congestion, bundle success, tip vs success rate, failure frequency                  |
 
 Live updates come over WebSocket (`/v1/ws`); the server broadcasts network and pipeline snapshots every 1s. Full data contract: [docs/dashboard-data.md](docs/dashboard-data.md). Dashboard architecture: [GitBook](https://mira4sol.gitbook.io/tx-pilot).
 
@@ -441,15 +441,15 @@ and cross-reference the confirmed/finalized slot recorded here.
 
 ## Documentation
 
-| Doc                                                              | Read this for                                                     |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Doc                                                              | Read this for                                                                                         |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | [TX Pilot on GitBook](https://mira4sol.gitbook.io/tx-pilot)      | Architecture design document (components, data flow, infrastructure, failure handling, AI, dashboard) |
-| [docs/setup.md](docs/setup.md)                                   | Install, `.env` variables, Docker Postgres, migrations, first run |
-| [docs/architecture-design.md](docs/architecture-design.md)       | GitBook source (repo copy of the architecture design document)    |
-| [docs/architecture.md](docs/architecture.md)                     | Shorter internal architecture reference                           |
-| [docs/operations.md](docs/operations.md)                         | Submit flows, curl examples, CLI helper, polling                  |
-| [docs/dashboard-data.md](docs/dashboard-data.md)                 | REST and WebSocket contract for the ops dashboard                 |
-| [docs/lifecycle-log.md](docs/lifecycle-log.md)                   | Lifecycle export format and bounty evidence collection            |
-| [docs/lifecycle-log-evidence.md](docs/lifecycle-log-evidence.md) | Verified mainnet run with full signatures and slot numbers        |
+| [docs/setup.md](docs/setup.md)                                   | Install, `.env` variables, Docker Postgres, migrations, first run                                     |
+| [docs/architecture-design.md](docs/architecture-design.md)       | GitBook source (repo copy of the architecture design document)                                        |
+| [docs/architecture.md](docs/architecture.md)                     | Shorter internal architecture reference                                                               |
+| [docs/operations.md](docs/operations.md)                         | Submit flows, curl examples, CLI helper, polling                                                      |
+| [docs/dashboard-data.md](docs/dashboard-data.md)                 | REST and WebSocket contract for the ops dashboard                                                     |
+| [docs/lifecycle-log.md](docs/lifecycle-log.md)                   | Lifecycle export format and bounty evidence collection                                                |
+| [docs/lifecycle-log-evidence.md](docs/lifecycle-log-evidence.md) | Verified mainnet run with full signatures and slot numbers                                            |
 
 Architecture diagram source: [tx-pilot-architecture.svg](tx-pilot-architecture.svg)
