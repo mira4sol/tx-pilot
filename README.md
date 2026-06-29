@@ -151,7 +151,7 @@ The dashboard ships with the TX Pilot server. No separate frontend process. Afte
 
 The Go API serves the React app from `web/dist` on the same port as `/v1/*` REST and `/v1/ws` WebSocket. River job inspector lives at **http://localhost:8080/riverui**.
 
-![TX Pilot operations dashboard](docs/images/tx-pilot-dashboard.png)
+![TX Pilot operations dashboard](docs/images/pilot.png)
 
 | Panel                   | What you see                                                                                              |
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
